@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Lora&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #E6F7FA;
+            background-color: #CFFEFF;
             font-family: 'Lora', serif;
             color: #1F2933;
             margin: 0;
@@ -95,20 +95,19 @@
             border: 2px dashed #1F2933;
             margin-top: 10px;
         }
-        @media (max-width: 768px) {
-            .service {
-                flex-direction: column;
-                align-items: center;
-            }
-            .header-title {
-                font-size: 2em;
-            }
-            nav a {
-                flex: 1 1 100%; /* Take full width on small screens */
-            }
-            .gallery-image {
-                width: 100%; /* Full width on mobile */
-            }
+        .booking-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 auto;
+            max-width: 600px;
+        }
+        .booking-form input, .booking-form select, .booking-form textarea {
+            margin: 10px;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #1F2933;
+            border-radius: 5px;
         }
     </style>
 </head>
@@ -186,7 +185,51 @@
     </section>
     <section id="booking">
         <h2>Booking</h2>
-        <p>Placeholder for Booking content...</p>
+        <form class="booking-form">
+            <input type="text" placeholder="Your Name" required>
+            <input type="tel" placeholder="Your Phone Number" required>
+            <input type="email" placeholder="Your Email Address" required>
+            <label for="service-select">Select Service:</label>
+            <select id="service-select" required>
+                <option value="haircut">Haircut</option>
+                <option value="full-highlight">Full Highlight</option>
+                <option value="partial-highlight">Partial Highlight</option>
+                <option value="area-highlight">Area Highlight</option>
+                <option value="all-over-color">All Over Color</option>
+                <option value="root-touch-up">Root Touch Up</option>
+                <option value="partial-highlight-grey">Partial Highlight/Grey Coverage</option>
+                <option value="gloss">Gloss</option>
+                <option value="gloss-haircut">Gloss and Haircut</option>
+            </select>
+            <label>
+                <input type="checkbox" id="add-haircut">
+                Add Haircut ($30 additional and +1 hour)
+            </label>
+            <label for="appointment-time">Select Appointment Time:</label>
+            <select id="appointment-time" required>
+                <option value="09:00">09:00 AM</option>
+                <option value="09:30">09:30 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="10:30">10:30 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="11:30">11:30 AM</option>
+                <option value="12:00">12:00 PM</option>
+                <option value="12:30">12:30 PM</option>
+                <option value="01:00">01:00 PM</option>
+                <option value="01:30">01:30 PM</option>
+                <option value="02:00">02:00 PM</option>
+                <option value="02:30">02:30 PM</option>
+                <option value="03:00">03:00 PM</option>
+                <option value="03:30">03:30 PM</option>
+                <option value="04:00">04:00 PM</option>
+                <option value="04:30">04:30 PM</option>
+                <option value="05:00">05:00 PM</option>
+            </select>
+            <textarea placeholder="Any notes about your service"></textarea>
+            <input type="file" accept="image/*" placeholder="Upload Current Hair Picture" required>
+            <input type="file" accept="image/*" placeholder="Upload Inspiration Picture" required>
+            <button type="submit">Submit Booking</button>
+        </form>
     </section>
     <section id="contact">
         <h2>Contact Me</h2>
