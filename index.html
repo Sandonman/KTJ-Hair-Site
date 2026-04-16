@@ -117,6 +117,18 @@
             border-radius: 5px;
         }
     </style>
+    <script>
+        function toggleHaircutOption() {
+            const serviceSelect = document.getElementById('service-select');
+            const addHaircutCheckbox = document.getElementById('add-haircut');
+            addHaircutCheckbox.checked = false; // Uncheck if not valid
+            addHaircutCheckbox.disabled = false; // Enable it by default
+            const servicesWithHaircut = ['haircut', 'full-highlight', 'partial-highlight', 'area-highlight', 'all-over-color'];
+            if (!servicesWithHaircut.includes(serviceSelect.value)) {
+                addHaircutCheckbox.disabled = true; // Disable if service doesn\'t allow haircut
+            }
+        }
+    </script>
 </head>
 <body>
     <header>
@@ -198,7 +210,7 @@
             <input type="tel" placeholder="Your Phone Number" required>
             <input type="email" placeholder="Your Email Address" required>
             <label for="service-select">Select Service:</label>
-            <select id="service-select" required>
+            <select id="service-select" required onchange="toggleHaircutOption()">
                 <option value="haircut">Haircut</option>
                 <option value="full-highlight">Full Highlight</option>
                 <option value="partial-highlight">Partial Highlight</option>
@@ -210,7 +222,7 @@
                 <option value="gloss-haircut">Gloss and Haircut</option>
             </select>
             <label>
-                <input type="checkbox" id="add-haircut">
+                <input type="checkbox" id="add-haircut" disabled>
                 Add Haircut ($30 additional and +30 minutes)
             </label>
             <label for="appointment-date">Select Appointment Date:</label>
