@@ -17,21 +17,35 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        nav {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 10px;
         }
         nav a {
-            margin: 0 15px;
+            margin: 5px;
             color: #1F2933; /* Primary Text */
             text-decoration: none;
             padding: 10px;
             border-radius: 5px;
             background-color: #C85F55; /* Button Color */
             color: #F9FAFB; /* Light Text */
+            transition: background-color 0.3s ease;
+        }
+        nav a:hover {
+            background-color: #A45647; /* Darker shade for hover effect */
         }
         .header-title {
             color: #1F2933;
             font-size: 2.5em;
             font-weight: bold;
             margin: 0;
+            flex: 1 0 100%;
+            text-align: center;
         }
         section {
             margin: 20px;
