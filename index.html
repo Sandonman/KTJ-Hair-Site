@@ -132,8 +132,7 @@
         function getNextTwelveThursdays() {
             const today = new Date();
             const thursdays = [];
-            // Calculate the next Thursday
-            today.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);
+            today.setDate(today.getDate() + (4 - today.getDay() + 7) % 7); // Find the next Thursday
             for (let i = 0; i < 12; i++) {
                 const options = { year: 'numeric', month: 'long', day: 'numeric' };
                 let dateStr = today.toLocaleDateString('en-US', options); // Format as 'Month Day, Year'
@@ -149,7 +148,16 @@
             const thursdayDates = getNextTwelveThursdays();
             thursdayDates.forEach(thursday => {
                 const option = document.createElement('option');
-                option.value = thursday; // Keep this for consistency\n                option.textContent = thursday; // The display text\n                dropdown.appendChild(option);\n            });\n        }\n\n        window.onload = populateDateDropdown;\n    </script>
+                option.value = thursday; // Keep this for consistency
+                option.textContent = thursday; // The display text
+                dropdown.appendChild(option);
+            });
+        }
+
+        window.onload = function() {
+            populateDateDropdown();
+        };
+    </script>
 </head>
 <body>
     <header>
