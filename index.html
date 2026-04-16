@@ -7,14 +7,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Lora&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #CFFEFF;
+            background-color: #FAF7EF;
             font-family: 'Lora', serif;
             color: #1F2933;
             margin: 0;
             padding: 0;
         }
         header {
-            background-color: #EDDA85;
+            background-color: #EBDFA6;
             padding: 10px;
             display: flex;
             align-items: center;
@@ -35,7 +35,7 @@
             text-decoration: none;
             padding: 10px;
             border-radius: 5px;
-            background-color: #BD4D62; /* Button Color */
+            background-color: #D48C96; /* Button Color */
             transition: background-color 0.3s ease;
             text-align: center;
         }
@@ -54,7 +54,7 @@
             margin: 20px;
         }
         section h2 {
-            background-color: #5FC0C2; /* Sub-Header Background Color */
+            background-color: #9FD6D3; /* Sub-Header Background Color */
             color: #1F2933; /* Primary Text Color */
             padding: 10px;
             border-radius: 5px; /* Optional for rounded corners */
@@ -128,25 +128,6 @@
                 addHaircutCheckbox.disabled = true; // Disable if service doesn\'t allow haircut
             }
         }
-
-        function setThursdaysDropdown() {
-            const today = new Date();
-            const thursdays = [];
-            for (let i = 0; i < 12; i++) {
-                const nextThursday = new Date(today);
-                nextThursday.setDate(today.getDate() + (4 - today.getDay() + 7) % 7 + (i * 7));
-                thursdays.push(nextThursday.toDateString());
-            }
-            const dropdown = document.getElementById('appointment-date');
-            thursdays.forEach((date) => {
-                const option = document.createElement('option');
-                option.value = date;
-                option.textContent = date;
-                dropdown.appendChild(option);
-            });
-        }
-
-        window.onload = setThursdaysDropdown;
     </script>
 </head>
 <body>
