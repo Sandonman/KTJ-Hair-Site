@@ -123,7 +123,7 @@
             const addHaircutCheckbox = document.getElementById('add-haircut');
             addHaircutCheckbox.checked = false; // Uncheck if not valid
             addHaircutCheckbox.disabled = false; // Enable it by default
-            const servicesWithHaircut = ['haircut', 'full-highlight', 'partial-highlight', 'area-highlight', 'all-over-color'];
+            const servicesWithHaircut = ['haircut', 'full-highlight', 'partial-highlight', 'area-highlight', 'all-over-color', 'root-touch-up', 'partial-highlight-grey'];
             if (!servicesWithHaircut.includes(serviceSelect.value)) {
                 addHaircutCheckbox.disabled = true; // Disable if service doesn\'t allow haircut
             }
@@ -248,6 +248,7 @@
                 <option value="05:00">05:00 PM</option>
             </select>
             <textarea placeholder="Any notes about your service"></textarea>
+            <p>Please upload a picture of your current hair as well as an inspiration picture.</p>
             <input type="file" accept="image/*" placeholder="Upload Current Hair Picture" required>
             <input type="file" accept="image/*" placeholder="Upload Inspiration Picture" required>
             <button type="submit">Submit Booking</button>
