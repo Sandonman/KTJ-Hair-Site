@@ -41,6 +41,24 @@
             color: #1F2933; /* Primary Text Color */
             padding: 10px;
             border-radius: 5px; /* Optional for rounded corners */
+            text-align: center; /* Center the text */
+        }
+        .about-image {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+            border: 2px dashed #1F2933; /* Optional border style */
+        }
+        .gallery-images {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .gallery-image {
+            width: 30%;
+            height: auto;
+            border: 2px dashed #1F2933; /* Optional border style */
         }
     </style>
 </head>
@@ -57,11 +75,16 @@
     </header>
     <section id="about">
         <h2>About</h2>
+        <img class="about-image" src="" alt="About Image Placeholder">
         <p>Placeholder for About content...</p>
     </section>
     <section id="gallery">
         <h2>Gallery</h2>
-        <p>Placeholder for Gallery content...</p>
+        <div class="gallery-images">
+            <img class="gallery-image" src="" alt="Gallery Image 1 Placeholder">
+            <img class="gallery-image" src="" alt="Gallery Image 2 Placeholder">
+            <img class="gallery-image" src="" alt="Gallery Image 3 Placeholder">
+        </div>
     </section>
     <section id="services">
         <h2>Services</h2>
