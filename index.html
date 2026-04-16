@@ -10,10 +10,12 @@
             background-color: #CFFEFF;
             font-family: 'Lora', serif;
             color: #1F2933;
+            margin: 0;
+            padding: 0;
         }
         header {
             background-color: #FFF940;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -25,6 +27,7 @@
             flex-wrap: wrap;
             justify-content: center;
             margin-top: 10px;
+            width: 100%;
         }
         nav a {
             margin: 5px;
@@ -35,6 +38,7 @@
             background-color: #C85F55; /* Button Color */
             color: #F9FAFB; /* Light Text */
             transition: background-color 0.3s ease;
+            text-align: center;
         }
         nav a:hover {
             background-color: #A45647; /* Darker shade for hover effect */
@@ -68,11 +72,13 @@
             display: flex;
             justify-content: space-around;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
         .gallery-image {
             width: 30%;
             height: auto;
             border: 2px dashed #1F2933; /* Optional border style */
+            margin: 5px;
         }
         .service {
             margin-bottom: 20px;
@@ -82,11 +88,28 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
         }
         .service img {
             width: 120px;
             height: auto;
             border: 2px dashed #1F2933;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .service {
+                flex-direction: column;
+                align-items: center;
+            }
+            .header-title {
+                font-size: 2em;
+            }
+            nav a {
+                flex: 1 1 100%; /* Take full width on small screens */
+            }
+            .gallery-image {
+                width: 100%; /* Full width on mobile */
+            }
         }
     </style>
 </head>
