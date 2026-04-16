@@ -129,9 +129,31 @@
             }
         }
 
-        function getNextTwelveThursdays() {\n          // Placeholder for now, to be implemented later\n        }
+        function getNextTwelveThursdays() {
+            const today = new Date();
+            const thursdays = [];
+            // Find the next Thursday from today's date
+            today.setDate(today.getDate() + ((4 - today.getDay() + 7) % 7));
+            for (let i = 0; i < 12; i++) {
+                let dateStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+                thursdays.push(dateStr);
+                today.setDate(today.getDate() + 7); // Move to the next Thursday
+            }
+            return thursdays;
+        }
 
-        // Populate the date dropdown\n        function populateDateDropdown() {\n            const dropdown = document.getElementById('appointment-date');\n            // Logic to populate dates will go here\n        }\n
+        // Populate the date dropdown
+        function populateDateDropdown() {
+            const dropdown = document.getElementById('appointment-date');
+            const thursdayDates = getNextTwelveThursdays();
+            thursdayDates.forEach(thursday => {
+                const option = document.createElement('option');
+                option.value = thursday; // The date value
+                option.textContent = thursday; // The display text
+                dropdown.appendChild(option);
+            });
+        }
+
         window.onload = populateDateDropdown;
     </script>
 </head>
