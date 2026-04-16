@@ -129,7 +129,33 @@
             }
         }
 
-        function getNextTwelveThursdays() {\n            const today = new Date();\n            const thursdays = [];\n            // Get the next Thursday from today's date\n            today.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);\n            for (let i = 0; i < 12; i++) {\n                let dateStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD\n                thursdays.push(dateStr);\n                today.setDate(today.getDate() + 7); // Move to the next Thursday\n            }\n            return thursdays;\n        }\n\n        // Populate the date dropdown\n        function populateDateDropdown() {\n            const dropdown = document.getElementById('appointment-date');\n            const thursdayDates = getNextTwelveThursdays();\n            thursdayDates.forEach(thursday => {\n                const option = document.createElement('option');\n                option.value = thursday; // The date value\n                option.textContent = thursday; // The display text\n                dropdown.appendChild(option);\n            });\n        }\n\n        window.onload = populateDateDropdown;\n    </script>
+        function getNextTwelveThursdays() {
+            const today = new Date();
+            const thursdays = [];
+            // Get the next Thursday from today's date
+            today.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);
+            for (let i = 0; i < 12; i++) {
+                let dateStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+                thursdays.push(dateStr);
+                today.setDate(today.getDate() + 7); // Move to the next Thursday
+            }
+            return thursdays;
+        }
+
+        // Populate the date dropdown
+        function populateDateDropdown() {
+            const dropdown = document.getElementById('appointment-date');
+            const thursdayDates = getNextTwelveThursdays();
+            thursdayDates.forEach(thursday => {
+                const option = document.createElement('option');
+                option.value = thursday; // The date value
+                option.textContent = thursday; // The display text
+                dropdown.appendChild(option);
+            });
+        }
+
+        window.onload = populateDateDropdown;
+    </script>
 </head>
 <body>
     <header>
