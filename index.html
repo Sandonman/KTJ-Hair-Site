@@ -125,32 +125,29 @@
             addHaircutCheckbox.disabled = false; // Enable it by default
             const servicesWithHaircut = ['haircut', 'full-highlight', 'partial-highlight', 'area-highlight', 'all-over-color', 'root-touch-up', 'partial-highlight-grey'];
             if (!servicesWithHaircut.includes(serviceSelect.value)) {
-                addHaircutCheckbox.disabled = true; // Disable if service doesn't allow haircut
+                addHaircutCheckbox.disabled = true; // Disable if service doesn\'t allow haircut
             }
         }
 
         function getNextTwelveThursdays() {
             const today = new Date();
             const thursdays = [];
-            let dayOfWeek = today.getDay();
-            const dayDiff = (dayOfWeek <= 4) ? (4 - dayOfWeek) : (11 - dayOfWeek);
-            today.setDate(today.getDate() + dayDiff);
+            // Find the next Thursday from today's date\n            today.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);
             for (let i = 0; i < 12; i++) {
-                let dateStr = today.toISOString().split('T')[0];
+                let dateStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
                 thursdays.push(dateStr);
-                today.setDate(today.getDate() + 7);
+                today.setDate(today.getDate() + 7); // Move to the next Thursday
             }
             return thursdays;
         }
 
-        // Populate the date dropdown
-        function populateDateDropdown() {
+        // Populate the date dropdown\n        function populateDateDropdown() {
             const dropdown = document.getElementById('appointment-date');
             const thursdayDates = getNextTwelveThursdays();
             thursdayDates.forEach(thursday => {
                 const option = document.createElement('option');
-                option.value = thursday;
-                option.textContent = thursday;
+                option.value = thursday; // The date value
+                option.textContent = thursday; // The display text
                 dropdown.appendChild(option);
             });
         }
