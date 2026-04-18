@@ -167,8 +167,69 @@
             });
         }
 
+        async function handleBookingSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData();
+
+            formData.append('name', form.elements['name'].value);
+            formData.append('phone', form.elements['phone'].value);
+            formData.append('email', form.elements['email'].value);
+            formData.append('service', form.elements['service'].value);
+            formData.append('addHaircut', form.elements['addHaircut'].checked);
+            formData.append('appointmentDate', form.elements['appointmentDate'].value);
+            formData.append('appointmentTime', form.elements['appointmentTime'].value);
+            formData.append('notes', form.elements['notes'].value);
+
+            if (form.elements['currentHairImage'].files[0]) {
+                formData.append('currentHairImage', form.elements['currentHairImage'].files[0]);
+            }
+            if (form.elements['inspirationImage'].files[0]) {
+                formData.append('inspirationImage', form.elements['inspirationImage'].files[0]);
+            }
+
+            const response = await fetch('https://ktj-hair-site.onrender.com/api/bookings', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                alert('Booking submitted successfully.');
+                form.reset();
+            } else {
+                alert('Booking submission failed. Please try again.');
+            }
+        }
+
+        async function handleContactSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+
+            const payload = {
+                name: form.elements['contactName'].value,
+                email: form.elements['contactEmail'].value,
+                phone: form.elements['contactPhone'].value,
+                message: form.elements['contactMessage'].value
+            };
+
+            const response = await fetch('https://ktj-hair-site.onrender.com/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert('Message sent successfully.');
+                form.reset();
+            } else {
+                alert('Message failed to send. Please try again.');
+            }
+        }
+
         window.onload = function() {
             populateDateDropdown();
+            document.querySelector('.booking-form').addEventListener('submit', handleBookingSubmit);
+            document.querySelector('.contact-form').addEventListener('submit', handleContactSubmit);
         };
     </script>
 </head>
@@ -285,11 +346,11 @@
         <h2>Booking</h2>
         <p>Currently, Thursdays are the only days available for normal booking, but requests for services on other days can be made in the Contact Me section.</p>
         <form class="booking-form">
-            <input type="text" placeholder="Your Name" required>
-            <input type="tel" placeholder="Your Phone Number" required>
-            <input type="email" placeholder="Your Email Address" required>
+            <input type="text" name="name" placeholder="Your Name" required>
+            <input type="tel" name="phone" placeholder="Your Phone Number" required>
+            <input type="email" name="email" placeholder="Your Email Address" required>
             <label for="service-select">Select Service:</label>
-            <select id="service-select" required onchange="toggleHaircutOption()">
+            <select id="service-select" name="service" required onchange="toggleHaircutOption()">
                 <option value="haircut">Haircut</option>
                 <option value="full-highlight">Full Highlight</option>
                 <option value="partial-highlight">Partial Highlight</option>
@@ -301,15 +362,15 @@
                 <option value="gloss-haircut">Gloss and Haircut</option>
             </select>
             <label>
-                <input type="checkbox" id="add-haircut" disabled>
+                <input type="checkbox" id="add-haircut" name="addHaircut" disabled>
                 Add Haircut ($30 additional and +30 minutes)
             </label>
             <label for="appointment-date">Select Appointment Date:</label>
-            <select id="appointment-date" required>
+            <select id="appointment-date" name="appointmentDate" required>
                 <option value="">Select a date...</option>
             </select>
             <label for="appointment-time">Select Appointment Time:</label>
-            <select id="appointment-time" required>
+            <select id="appointment-time" name="appointmentTime" required>
                 <option value="09:00">09:00 AM</option>
                 <option value="09:30">09:30 AM</option>
                 <option value="10:00">10:00 AM</option>
@@ -328,10 +389,10 @@
                 <option value="04:30">04:30 PM</option>
                 <option value="05:00">05:00 PM</option>
             </select>
-            <textarea placeholder="Any notes about your service"></textarea>
+            <textarea name="notes" placeholder="Any notes about your service"></textarea>
             <p>Please upload a picture of your current hair as well as an inspiration picture.</p>
-            <input type="file" accept="image/*" placeholder="Upload Current Hair Picture" required>
-            <input type="file" accept="image/*" placeholder="Upload Inspiration Picture" required>
+            <input type="file" name="currentHairImage" accept="image/*" placeholder="Upload Current Hair Picture" required>
+            <input type="file" name="inspirationImage" accept="image/*" placeholder="Upload Inspiration Picture" required>
             <button type="submit">Submit Booking</button>
         </form>
     </section>
@@ -339,10 +400,10 @@
         <h2>Contact Me</h2>
         <p>If you have any questions or would like to request an appointment outside of Thursday, you can message Katie here.</p>
         <form class="contact-form">
-            <input type="text" placeholder="Your Name" required>
-            <input type="email" placeholder="Your Email" required>
-            <input type="tel" placeholder="Your Phone Number" required>
-            <textarea placeholder="Your Message" required></textarea>
+            <input type="text" name="contactName" placeholder="Your Name" required>
+            <input type="email" name="contactEmail" placeholder="Your Email" required>
+            <input type="tel" name="contactPhone" placeholder="Your Phone Number" required>
+            <textarea name="contactMessage" placeholder="Your Message" required></textarea>
             <button type="submit">Send Message</button>
         </form>
     </section>
