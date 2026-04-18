@@ -126,10 +126,23 @@
         <input name="name" placeholder="Client Name" required />
         <input name="phone" placeholder="Client Phone" required />
         <input name="email" type="email" placeholder="Client Email" required />
-        <input name="service" placeholder="Service" required />
+        <select name="service" id="manualServiceSelect" required>
+          <option value="">Select Service</option>
+          <option value="haircut">Haircut</option>
+          <option value="full-highlight">Full Highlight</option>
+          <option value="partial-highlight">Partial Highlight</option>
+          <option value="area-highlight">Area Highlight</option>
+          <option value="all-over-color">All Over Color</option>
+          <option value="root-touch-up">Root Touch Up</option>
+          <option value="partial-highlight-grey">Partial Highlight/Grey Coverage</option>
+          <option value="gloss">Gloss</option>
+          <option value="gloss-haircut">Gloss and Haircut</option>
+          <option value="other">Other</option>
+        </select>
+        <input name="customService" id="customServiceInput" placeholder="Enter custom service" style="display:none;" />
         <label><input type="checkbox" name="addHaircut" /> Add Haircut</label>
-        <input name="appointmentDate" placeholder="Appointment Date" required />
-        <input name="appointmentTime" placeholder="Appointment Time" required />
+        <input name="appointmentDate" type="date" required />
+        <select name="appointmentTime" id="manualAppointmentTime" required></select>
         <textarea name="notes" placeholder="Notes"></textarea>
         <select name="status">
           <option value="new">New</option>
@@ -332,14 +345,46 @@
       }
     }
 
+    function populateAdminTimeOptions() {
+      const select = document.getElementById('manualAppointmentTime');
+      const startMinutes = 5 * 60;
+      const endMinutes = 19 * 60;
+      let options = '<option value="">Select Time</option>';
+
+      for (let minutes = startMinutes; minutes <= endMinutes; minutes += 30) {
+        const hour24 = Math.floor(minutes / 60);
+        const minute = minutes % 60;
+        const suffix = hour24 >= 12 ? 'PM' : 'AM';
+        const hour12 = ((hour24 + 11) % 12) + 1;
+        const value = `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        const label = `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`;
+        options += `<option value="${value}">${label}</option>`;
+      }
+
+      select.innerHTML = options;
+    }
+
+    document.getElementById('manualServiceSelect').addEventListener('change', (event) => {
+      const customInput = document.getElementById('customServiceInput');
+      if (event.target.value === 'other') {
+        customInput.style.display = 'block';
+        customInput.required = true;
+      } else {
+        customInput.style.display = 'none';
+        customInput.required = false;
+        customInput.value = '';
+      }
+    });
+
     document.getElementById('manualBookingForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
+      const selectedService = form.elements.service.value;
       const payload = {
         name: form.elements.name.value,
         phone: form.elements.phone.value,
         email: form.elements.email.value,
-        service: form.elements.service.value,
+        service: selectedService === 'other' ? form.elements.customService.value : selectedService,
         addHaircut: form.elements.addHaircut.checked,
         appointmentDate: form.elements.appointmentDate.value,
         appointmentTime: form.elements.appointmentTime.value,
@@ -387,6 +432,7 @@
       }
     });
 
+    populateAdminTimeOptions();
     loadAdminData();
   </script>
 </body>
