@@ -286,8 +286,13 @@
             (note.client_phone || '').toLowerCase().includes(normalized)
           );
 
+      if (!normalized) {
+        renderEmpty(notesEl, 'Search by client name or phone number to view notes.');
+        return;
+      }
+
       if (!filtered.length) {
-        renderEmpty(notesEl, normalized ? 'No client notes match that search.' : 'No client notes yet.');
+        renderEmpty(notesEl, 'No client notes match that search.');
         return;
       }
 
