@@ -177,6 +177,19 @@
             font-weight: bold;
             cursor: pointer;
         }
+        .contact-confirmation {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .contact-confirmation.active {
+            display: flex;
+        }
     </style>
     <script>
         function toggleHaircutOption() {
@@ -263,6 +276,14 @@
             }
         }
 
+        function showContactConfirmation() {
+            document.getElementById('contactConfirmation').classList.add('active');
+        }
+
+        function closeContactConfirmation() {
+            document.getElementById('contactConfirmation').classList.remove('active');
+        }
+
         async function handleContactSubmit(event) {
             event.preventDefault();
             const form = event.target;
@@ -281,8 +302,8 @@
             });
 
             if (response.ok) {
-                alert('Message sent successfully.');
                 form.reset();
+                showContactConfirmation();
             } else {
                 alert('Message failed to send. Please try again.');
             }
@@ -470,6 +491,13 @@
             <p><strong>Status:</strong> <span id="receiptStatus"></span></p>
             <p>Katie will review your request and follow up if anything needs to be adjusted.</p>
             <button class="receipt-close" type="button" onclick="closeBookingReceipt()">Close</button>
+        </div>
+    </div>
+    <div id="contactConfirmation" class="contact-confirmation" onclick="closeContactConfirmation()">
+        <div class="receipt-card" onclick="event.stopPropagation()">
+            <h3>Message Sent</h3>
+            <p>Katie will receive your message soon and reply to you over text to help you out.</p>
+            <button class="receipt-close" type="button" onclick="closeContactConfirmation()">Close</button>
         </div>
     </div>
     <section id="contact">
