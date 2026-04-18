@@ -158,7 +158,12 @@
   </div>
 
   <div class="section">
-    <h2>Client Notes History</h2>
+    <h2>Client Notes</h2>
+    <div class="grid">
+      <div>
+        <input id="clientNotesSearch" placeholder="Search by client name or phone number" />
+      </div>
+    </div>
     <div id="clientNotesList"></div>
   </div>
 
@@ -170,6 +175,7 @@
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
     let bookings = [];
+    let clientNotes = [];
 
     function renderEmpty(el, text) {
       el.innerHTML = `<div class="empty">${text}</div>`;
@@ -270,6 +276,24 @@
       target.innerHTML = matches.map(bookingCard).join('');
     }
 
+    function renderClientNotesList(searchTerm = '') {
+      const notesEl = document.getElementById('clientNotesList');
+      const normalized = searchTerm.trim().toLowerCase();
+      const filtered = !normalized
+        ? clientNotes
+        : clientNotes.filter(note =>
+            (note.client_name || '').toLowerCase().includes(normalized) ||
+            (note.client_phone || '').toLowerCase().includes(normalized)
+          );
+
+      if (!filtered.length) {
+        renderEmpty(notesEl, normalized ? 'No client notes match that search.' : 'No client notes yet.');
+        return;
+      }
+
+      notesEl.innerHTML = filtered.map(noteCard).join('');
+    }
+
     async function loadAdminData() {
       const messagesEl = document.getElementById('messages');
       const notesEl = document.getElementById('clientNotesList');
@@ -294,11 +318,8 @@
           messagesEl.innerHTML = messagesData.messages.map(messageCard).join('');
         }
 
-        if (!notesData.notes || notesData.notes.length === 0) {
-          renderEmpty(notesEl, 'No client notes yet.');
-        } else {
-          notesEl.innerHTML = notesData.notes.map(noteCard).join('');
-        }
+        clientNotes = notesData.notes || [];
+        renderClientNotesList();
       } catch (error) {
         document.getElementById('calendar').innerHTML = '<div class="empty">Failed to load calendar.</div>';
         messagesEl.innerHTML = '<div class="empty">Failed to load messages.</div>';
@@ -335,6 +356,10 @@
         form.reset();
         loadAdminData();
       }
+    });
+
+    document.getElementById('clientNotesSearch').addEventListener('input', (event) => {
+      renderClientNotesList(event.target.value);
     });
 
     document.getElementById('clientNotesForm').addEventListener('submit', async (event) => {
