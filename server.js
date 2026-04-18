@@ -21,6 +21,38 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/admin/bookings', async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ bookings: data });
+  } catch (error) {
+    console.error('Admin bookings fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings.' });
+  }
+});
+
+app.get('/api/admin/contact-messages', async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ messages: data });
+  } catch (error) {
+    console.error('Admin contact fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch contact messages.' });
+  }
+});
+
 async function uploadFileToBucket(file, folder = 'bookings') {
   if (!file) return null;
 

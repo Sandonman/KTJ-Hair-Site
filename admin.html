@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KTJ Hair Admin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf7ef;
+      color: #1f2933;
+      margin: 0;
+      padding: 24px;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .section {
+      max-width: 1000px;
+      margin: 0 auto 32px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: #fff;
+    }
+    .meta {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .empty {
+      text-align: center;
+      color: #666;
+      padding: 20px;
+    }
+    a {
+      color: #a45647;
+    }
+  </style>
+</head>
+<body>
+  <h1>KTJ Hair Admin</h1>
+
+  <div class="section">
+    <h2>Bookings</h2>
+    <div id="bookings"></div>
+  </div>
+
+  <div class="section">
+    <h2>Contact Messages</h2>
+    <div id="messages"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://ktj-hair-site.onrender.com';
+
+    function renderEmpty(el, text) {
+      el.innerHTML = `<div class="empty">${text}</div>`;
+    }
+
+    function bookingCard(booking) {
+      return `
+        <div class="card">
+          <div class="meta">${new Date(booking.created_at).toLocaleString()}</div>
+          <strong>${booking.name}</strong><br>
+          ${booking.email}<br>
+          ${booking.phone}<br><br>
+          <strong>Service:</strong> ${booking.service}<br>
+          <strong>Date:</strong> ${booking.appointment_date}<br>
+          <strong>Time:</strong> ${booking.appointment_time}<br>
+          <strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}<br>
+          <strong>Status:</strong> ${booking.status}<br><br>
+          <strong>Notes:</strong> ${booking.notes || 'None'}<br><br>
+          <strong>Current Hair Image:</strong> ${booking.current_hair_image_url ? `<code>${booking.current_hair_image_url}</code>` : 'None'}<br>
+          <strong>Inspiration Image:</strong> ${booking.inspiration_image_url ? `<code>${booking.inspiration_image_url}</code>` : 'None'}
+        </div>
+      `;
+    }
+
+    function messageCard(message) {
+      return `
+        <div class="card">
+          <div class="meta">${new Date(message.created_at).toLocaleString()}</div>
+          <strong>${message.name}</strong><br>
+          ${message.email}<br>
+          ${message.phone || ''}<br><br>
+          <strong>Status:</strong> ${message.status}<br><br>
+          <strong>Message:</strong><br>
+          ${message.message}
+        </div>
+      `;
+    }
+
+    async function loadAdminData() {
+      const bookingsEl = document.getElementById('bookings');
+      const messagesEl = document.getElementById('messages');
+
+      try {
+        const [bookingsRes, messagesRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/bookings`),
+          fetch(`${API_BASE}/api/admin/contact-messages`)
+        ]);
+
+        const bookingsData = await bookingsRes.json();
+        const messagesData = await messagesRes.json();
+
+        if (!bookingsData.bookings || bookingsData.bookings.length === 0) {
+          renderEmpty(bookingsEl, 'No bookings yet.');
+        } else {
+          bookingsEl.innerHTML = bookingsData.bookings.map(bookingCard).join('');
+        }
+
+        if (!messagesData.messages || messagesData.messages.length === 0) {
+          renderEmpty(messagesEl, 'No contact messages yet.');
+        } else {
+          messagesEl.innerHTML = messagesData.messages.map(messageCard).join('');
+        }
+      } catch (error) {
+        bookingsEl.innerHTML = `<div class="empty">Failed to load bookings.</div>`;
+        messagesEl.innerHTML = `<div class="empty">Failed to load messages.</div>`;
+      }
+    }
+
+    loadAdminData();
+  </script>
+</body>
+</html>
