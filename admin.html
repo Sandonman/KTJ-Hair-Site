@@ -45,6 +45,17 @@
       color: #666;
       padding: 20px;
     }
+    .calendar-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .calendar-nav button {
+      width: auto;
+      padding: 10px 16px;
+    }
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -114,6 +125,11 @@
 
   <div class="section">
     <h2>Booking Calendar</h2>
+    <div class="calendar-nav">
+      <button type="button" id="prevMonthBtn">Previous Month</button>
+      <strong id="calendarMonthLabel"></strong>
+      <button type="button" id="nextMonthBtn">Next Month</button>
+    </div>
     <div id="calendar"></div>
     <h3 id="selectedDayHeading">Select a booked day</h3>
     <div id="selectedDayBookings" class="empty">No day selected yet.</div>
@@ -189,6 +205,7 @@
     const API_BASE = 'https://ktj-hair-site.onrender.com';
     let bookings = [];
     let clientNotes = [];
+    let currentCalendarDate = new Date();
 
     function renderEmpty(el, text) {
       el.innerHTML = `<div class="empty">${text}</div>`;
@@ -248,11 +265,11 @@
 
     function renderCalendar(bookings) {
       const calendarEl = document.getElementById('calendar');
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
+       document.getElementById('calendarMonthLabel').textContent = currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       const bookedDates = new Set(bookings.map(b => normalizeDateLabel(b.appointment_date)));
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -410,12 +427,25 @@
         });
 
         if (conflict) {
-          option.textContent = `${option.textContent} (close to another booking)`;
+          option.textContent = `${option.textContent} ⚠ close to another booking`;
+          option.style.backgroundColor = '#fff4d6';
+          option.style.color = '#8a5a00';
+        } else {
+          option.style.backgroundColor = '';
+          option.style.color = '';
         }
       });
     }
 
     document.querySelector('#manualBookingForm [name="appointmentDate"]').addEventListener('change', refreshAdminAvailability);
+    document.getElementById('prevMonthBtn').addEventListener('click', () => {
+      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1);
+      renderCalendar(bookings);
+    });
+    document.getElementById('nextMonthBtn').addEventListener('click', () => {
+      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1);
+      renderCalendar(bookings);
+    });
 
     document.getElementById('manualBookingForm').addEventListener('submit', async (event) => {
       event.preventDefault();
