@@ -53,6 +53,22 @@ app.get('/api/admin/contact-messages', async (_req, res) => {
   }
 });
 
+app.get('/api/admin/client-notes', async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('client_notes')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ notes: data });
+  } catch (error) {
+    console.error('Admin client notes fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch client notes.' });
+  }
+});
+
 async function uploadFileToBucket(file, folder = 'bookings') {
   if (!file) return null;
 
@@ -151,6 +167,89 @@ app.post('/api/contact', async (req, res) => {
   } catch (error) {
     console.error('Contact submission error:', error);
     res.status(500).json({ error: 'Failed to send message.' });
+  }
+});
+
+app.post('/api/admin/bookings', async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      email,
+      service,
+      addHaircut,
+      appointmentDate,
+      appointmentTime,
+      notes,
+      status,
+    } = req.body;
+
+    if (!name || !phone || !email || !service || !appointmentDate || !appointmentTime) {
+      return res.status(400).json({ error: 'Missing required booking fields.' });
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert({
+        name,
+        phone,
+        email,
+        service,
+        add_haircut: addHaircut === 'true' || addHaircut === true,
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime,
+        notes: notes || null,
+        status: status || 'new',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ booking: data });
+  } catch (error) {
+    console.error('Admin booking creation error:', error);
+    res.status(500).json({ error: 'Failed to create booking.' });
+  }
+});
+
+app.post('/api/admin/client-notes', upload.single('hairPhoto'), async (req, res) => {
+  try {
+    const {
+      clientName,
+      clientPhone,
+      clientEmail,
+      formulaNotes,
+      styleNotes,
+      generalNotes,
+    } = req.body;
+
+    if (!clientName) {
+      return res.status(400).json({ error: 'Client name is required.' });
+    }
+
+    const hairPhotoPath = await uploadFileToBucket(req.file, 'client-notes');
+
+    const { data, error } = await supabase
+      .from('client_notes')
+      .insert({
+        client_name: clientName,
+        client_phone: clientPhone || null,
+        client_email: clientEmail || null,
+        formula_notes: formulaNotes || null,
+        style_notes: styleNotes || null,
+        general_notes: generalNotes || null,
+        hair_photo_path: hairPhotoPath,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ note: data });
+  } catch (error) {
+    console.error('Client note creation error:', error);
+    res.status(500).json({ error: 'Failed to save client note.' });
   }
 });
 

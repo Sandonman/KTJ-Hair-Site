@@ -12,16 +12,21 @@
       margin: 0;
       padding: 24px;
     }
-    h1, h2 {
+    h1, h2, h3 {
       text-align: center;
     }
     .section {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto 32px;
       background: white;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
     }
     .card {
       border: 1px solid #ddd;
@@ -40,8 +45,67 @@
       color: #666;
       padding: 20px;
     }
-    a {
-      color: #a45647;
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .calendar-header, .calendar-day {
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .calendar-header {
+      font-weight: bold;
+      background: #f1efe7;
+    }
+    .calendar-day {
+      background: #f8f8f8;
+      cursor: pointer;
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #eee;
+    }
+    .calendar-day.booked {
+      background: #d48c96;
+      color: white;
+      font-weight: bold;
+    }
+    .calendar-day.muted {
+      color: #bbb;
+      cursor: default;
+      background: #fbfbfb;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    input, textarea, select, button {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #d48c96;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .note-photo {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    .success {
+      color: #2e7d32;
+      font-weight: bold;
+      text-align: center;
     }
   </style>
 </head>
@@ -49,8 +113,53 @@
   <h1>KTJ Hair Admin</h1>
 
   <div class="section">
-    <h2>Bookings</h2>
-    <div id="bookings"></div>
+    <h2>Booking Calendar</h2>
+    <div id="calendar"></div>
+    <h3 id="selectedDayHeading">Select a booked day</h3>
+    <div id="selectedDayBookings" class="empty">No day selected yet.</div>
+  </div>
+
+  <div class="section grid">
+    <div>
+      <h2>Add Booking for Katie</h2>
+      <form id="manualBookingForm">
+        <input name="name" placeholder="Client Name" required />
+        <input name="phone" placeholder="Client Phone" required />
+        <input name="email" type="email" placeholder="Client Email" required />
+        <input name="service" placeholder="Service" required />
+        <label><input type="checkbox" name="addHaircut" /> Add Haircut</label>
+        <input name="appointmentDate" placeholder="Appointment Date" required />
+        <input name="appointmentTime" placeholder="Appointment Time" required />
+        <textarea name="notes" placeholder="Notes"></textarea>
+        <select name="status">
+          <option value="new">New</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="completed">Completed</option>
+        </select>
+        <button type="submit">Save Booking</button>
+        <div id="manualBookingStatus"></div>
+      </form>
+    </div>
+
+    <div>
+      <h2>Client Notes</h2>
+      <form id="clientNotesForm">
+        <input name="clientName" placeholder="Client Name" required />
+        <input name="clientPhone" placeholder="Client Phone" />
+        <input name="clientEmail" type="email" placeholder="Client Email" />
+        <textarea name="formulaNotes" placeholder="Color formulas"></textarea>
+        <textarea name="styleNotes" placeholder="Styles / preferences"></textarea>
+        <textarea name="generalNotes" placeholder="General notes"></textarea>
+        <input type="file" name="hairPhoto" accept="image/*" />
+        <button type="submit">Save Client Note</button>
+        <div id="clientNotesStatus"></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Client Notes History</h2>
+    <div id="clientNotesList"></div>
   </div>
 
   <div class="section">
@@ -60,6 +169,7 @@
 
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
+    let bookings = [];
 
     function renderEmpty(el, text) {
       el.innerHTML = `<div class="empty">${text}</div>`;
@@ -77,9 +187,7 @@
           <strong>Time:</strong> ${booking.appointment_time}<br>
           <strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}<br>
           <strong>Status:</strong> ${booking.status}<br><br>
-          <strong>Notes:</strong> ${booking.notes || 'None'}<br><br>
-          <strong>Current Hair Image:</strong> ${booking.current_hair_image_url ? `<code>${booking.current_hair_image_url}</code>` : 'None'}<br>
-          <strong>Inspiration Image:</strong> ${booking.inspiration_image_url ? `<code>${booking.inspiration_image_url}</code>` : 'None'}
+          <strong>Notes:</strong> ${booking.notes || 'None'}
         </div>
       `;
     }
@@ -98,35 +206,156 @@
       `;
     }
 
+    function noteCard(note) {
+      return `
+        <div class="card">
+          <div class="meta">${new Date(note.created_at).toLocaleString()}</div>
+          <strong>${note.client_name}</strong><br>
+          ${note.client_email || ''}<br>
+          ${note.client_phone || ''}<br><br>
+          <strong>Formula Notes:</strong> ${note.formula_notes || 'None'}<br><br>
+          <strong>Style Notes:</strong> ${note.style_notes || 'None'}<br><br>
+          <strong>General Notes:</strong> ${note.general_notes || 'None'}
+          ${note.hair_photo_path ? `<div><strong>Hair Photo Path:</strong><br><code>${note.hair_photo_path}</code></div>` : ''}
+        </div>
+      `;
+    }
+
+    function normalizeDateLabel(value) {
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return value;
+      return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function renderCalendar(bookings) {
+      const calendarEl = document.getElementById('calendar');
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const bookedDates = new Set(bookings.map(b => normalizeDateLabel(b.appointment_date)));
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      let html = '<div class="calendar">';
+      html += days.map(day => `<div class="calendar-header">${day}</div>`).join('');
+
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        html += '<div class="calendar-day muted"></div>';
+      }
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const current = new Date(year, month, day);
+        const label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const booked = bookedDates.has(label);
+        html += `<div class="calendar-day ${booked ? 'booked' : ''}" ${booked ? `onclick="showBookingsForDate('${label.replace(/'/g, "\\'")}')"` : ''}>${day}</div>`;
+      }
+
+      html += '</div>';
+      calendarEl.innerHTML = html;
+    }
+
+    window.showBookingsForDate = function(dateLabel) {
+      document.getElementById('selectedDayHeading').textContent = `Bookings for ${dateLabel}`;
+      const matches = bookings
+        .filter(booking => normalizeDateLabel(booking.appointment_date) === dateLabel)
+        .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+
+      const target = document.getElementById('selectedDayBookings');
+      if (!matches.length) {
+        renderEmpty(target, 'No bookings for that date.');
+        return;
+      }
+
+      target.innerHTML = matches.map(bookingCard).join('');
+    }
+
     async function loadAdminData() {
-      const bookingsEl = document.getElementById('bookings');
       const messagesEl = document.getElementById('messages');
+      const notesEl = document.getElementById('clientNotesList');
 
       try {
-        const [bookingsRes, messagesRes] = await Promise.all([
+        const [bookingsRes, messagesRes, notesRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/bookings`),
-          fetch(`${API_BASE}/api/admin/contact-messages`)
+          fetch(`${API_BASE}/api/admin/contact-messages`),
+          fetch(`${API_BASE}/api/admin/client-notes`)
         ]);
 
         const bookingsData = await bookingsRes.json();
         const messagesData = await messagesRes.json();
+        const notesData = await notesRes.json();
 
-        if (!bookingsData.bookings || bookingsData.bookings.length === 0) {
-          renderEmpty(bookingsEl, 'No bookings yet.');
-        } else {
-          bookingsEl.innerHTML = bookingsData.bookings.map(bookingCard).join('');
-        }
+        bookings = bookingsData.bookings || [];
+        renderCalendar(bookings);
 
         if (!messagesData.messages || messagesData.messages.length === 0) {
           renderEmpty(messagesEl, 'No contact messages yet.');
         } else {
           messagesEl.innerHTML = messagesData.messages.map(messageCard).join('');
         }
+
+        if (!notesData.notes || notesData.notes.length === 0) {
+          renderEmpty(notesEl, 'No client notes yet.');
+        } else {
+          notesEl.innerHTML = notesData.notes.map(noteCard).join('');
+        }
       } catch (error) {
-        bookingsEl.innerHTML = `<div class="empty">Failed to load bookings.</div>`;
-        messagesEl.innerHTML = `<div class="empty">Failed to load messages.</div>`;
+        document.getElementById('calendar').innerHTML = '<div class="empty">Failed to load calendar.</div>';
+        messagesEl.innerHTML = '<div class="empty">Failed to load messages.</div>';
+        notesEl.innerHTML = '<div class="empty">Failed to load client notes.</div>';
       }
     }
+
+    document.getElementById('manualBookingForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const payload = {
+        name: form.elements.name.value,
+        phone: form.elements.phone.value,
+        email: form.elements.email.value,
+        service: form.elements.service.value,
+        addHaircut: form.elements.addHaircut.checked,
+        appointmentDate: form.elements.appointmentDate.value,
+        appointmentTime: form.elements.appointmentTime.value,
+        notes: form.elements.notes.value,
+        status: form.elements.status.value,
+      };
+
+      const response = await fetch(`${API_BASE}/api/admin/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      document.getElementById('manualBookingStatus').innerHTML = response.ok
+        ? '<div class="success">Booking saved.</div>'
+        : '<div class="empty">Failed to save booking.</div>';
+
+      if (response.ok) {
+        form.reset();
+        loadAdminData();
+      }
+    });
+
+    document.getElementById('clientNotesForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const formData = new FormData(form);
+
+      const response = await fetch(`${API_BASE}/api/admin/client-notes`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      document.getElementById('clientNotesStatus').innerHTML = response.ok
+        ? '<div class="success">Client note saved.</div>'
+        : '<div class="empty">Failed to save client note.</div>';
+
+      if (response.ok) {
+        form.reset();
+        loadAdminData();
+      }
+    });
 
     loadAdminData();
   </script>
