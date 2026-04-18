@@ -130,6 +130,53 @@
             border: 1px solid #1F2933;
             border-radius: 5px;
         }
+        .upload-note {
+            text-align: center;
+            background-color: #fff8e7;
+            border: 1px solid #e6d5a8;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+        .receipt-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .receipt-modal.active {
+            display: flex;
+        }
+        .receipt-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 520px;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        }
+        .receipt-card h3 {
+            margin-top: 0;
+            text-align: center;
+        }
+        .receipt-card p {
+            margin: 8px 0;
+        }
+        .receipt-close {
+            margin-top: 16px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #D48C96;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
     </style>
     <script>
         function toggleHaircutOption() {
@@ -167,6 +214,19 @@
             });
         }
 
+        function showBookingReceipt(booking) {
+            document.getElementById('receiptName').textContent = booking.name;
+            document.getElementById('receiptService').textContent = booking.service;
+            document.getElementById('receiptDate').textContent = booking.appointment_date;
+            document.getElementById('receiptTime').textContent = booking.appointment_time;
+            document.getElementById('receiptStatus').textContent = booking.status;
+            document.getElementById('bookingReceipt').classList.add('active');
+        }
+
+        function closeBookingReceipt() {
+            document.getElementById('bookingReceipt').classList.remove('active');
+        }
+
         async function handleBookingSubmit(event) {
             event.preventDefault();
             const form = event.target;
@@ -194,8 +254,10 @@
             });
 
             if (response.ok) {
-                alert('Booking submitted successfully.');
+                const result = await response.json();
                 form.reset();
+                document.getElementById('add-haircut').disabled = true;
+                showBookingReceipt(result.booking);
             } else {
                 alert('Booking submission failed. Please try again.');
             }
@@ -390,12 +452,26 @@
                 <option value="05:00">05:00 PM</option>
             </select>
             <textarea name="notes" placeholder="Any notes about your service"></textarea>
-            <p>Please upload a picture of your current hair as well as an inspiration picture.</p>
-            <input type="file" name="currentHairImage" accept="image/*" placeholder="Upload Current Hair Picture" required>
-            <input type="file" name="inspirationImage" accept="image/*" placeholder="Upload Inspiration Picture" required>
+            <div class="upload-note">
+                Photo uploads are optional, but recommended for new clients so Katie can better prepare for your appointment.
+            </div>
+            <input type="file" name="currentHairImage" accept="image/*" placeholder="Upload Current Hair Picture">
+            <input type="file" name="inspirationImage" accept="image/*" placeholder="Upload Inspiration Picture">
             <button type="submit">Submit Booking</button>
         </form>
     </section>
+    <div id="bookingReceipt" class="receipt-modal" onclick="closeBookingReceipt()">
+        <div class="receipt-card" onclick="event.stopPropagation()">
+            <h3>Booking Request Received</h3>
+            <p>Thanks, <strong id="receiptName"></strong>. Your booking request has been submitted.</p>
+            <p><strong>Service:</strong> <span id="receiptService"></span></p>
+            <p><strong>Date:</strong> <span id="receiptDate"></span></p>
+            <p><strong>Time:</strong> <span id="receiptTime"></span></p>
+            <p><strong>Status:</strong> <span id="receiptStatus"></span></p>
+            <p>Katie will review your request and follow up if anything needs to be adjusted.</p>
+            <button class="receipt-close" type="button" onclick="closeBookingReceipt()">Close</button>
+        </div>
+    </div>
     <section id="contact">
         <h2>Contact Me</h2>
         <p>If you have any questions or would like to request an appointment outside of Thursday, you can message Katie here.</p>
