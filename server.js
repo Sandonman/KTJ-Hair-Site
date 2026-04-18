@@ -69,6 +69,29 @@ app.get('/api/admin/client-notes', async (_req, res) => {
   }
 });
 
+app.get('/api/bookings/availability', async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required.' });
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id, appointment_date, appointment_time, service, status')
+      .eq('appointment_date', date)
+      .order('appointment_time', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({ bookings: data || [] });
+  } catch (error) {
+    console.error('Availability fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch availability.' });
+  }
+});
+
 async function uploadFileToBucket(file, folder = 'bookings') {
   if (!file) return null;
 
@@ -84,6 +107,16 @@ async function uploadFileToBucket(file, folder = 'bookings') {
   if (error) throw error;
 
   return safeName;
+}
+
+function timeToMinutes(value) {
+  const [hours, minutes] = value.split(':').map(Number);
+  return (hours * 60) + minutes;
+}
+
+function hasConflict(existingBookings, appointmentTime, bufferMinutes = 60) {
+  const requested = timeToMinutes(appointmentTime);
+  return existingBookings.some((booking) => Math.abs(timeToMinutes(booking.appointment_time) - requested) < bufferMinutes);
 }
 
 app.post(
@@ -107,6 +140,17 @@ app.post(
 
       if (!name || !phone || !email || !service || !appointmentDate || !appointmentTime) {
         return res.status(400).json({ error: 'Missing required booking fields.' });
+      }
+
+      const { data: existingBookings, error: fetchError } = await supabase
+        .from('bookings')
+        .select('appointment_time')
+        .eq('appointment_date', appointmentDate);
+
+      if (fetchError) throw fetchError;
+
+      if (hasConflict(existingBookings || [], appointmentTime, 60)) {
+        return res.status(409).json({ error: 'That time is unavailable. Please choose a different appointment time.' });
       }
 
       const currentHairFile = req.files?.currentHairImage?.[0] || null;
@@ -186,6 +230,23 @@ app.post('/api/admin/bookings', async (req, res) => {
 
     if (!name || !phone || !email || !service || !appointmentDate || !appointmentTime) {
       return res.status(400).json({ error: 'Missing required booking fields.' });
+    }
+
+    const { data: existingBookings, error: fetchError } = await supabase
+      .from('bookings')
+      .select('appointment_time')
+      .eq('appointment_date', appointmentDate);
+
+    if (fetchError) throw fetchError;
+
+    const conflict = hasConflict(existingBookings || [], appointmentTime, 60);
+    const allowConflict = req.body.allowConflict === 'true' || req.body.allowConflict === true;
+
+    if (conflict && !allowConflict) {
+      return res.status(409).json({
+        error: 'This appointment is less than an hour from another booking.',
+        needsConfirmation: true,
+      });
     }
 
     const { data, error } = await supabase

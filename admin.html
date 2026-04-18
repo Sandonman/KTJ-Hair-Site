@@ -376,6 +376,47 @@
       }
     });
 
+    async function refreshAdminAvailability() {
+      const date = document.querySelector('#manualBookingForm [name="appointmentDate"]').value;
+      const select = document.getElementById('manualAppointmentTime');
+      const allOptions = Array.from(select.querySelectorAll('option')).map(option => ({
+        value: option.value,
+        label: option.textContent
+      }));
+
+      select.innerHTML = '';
+
+      allOptions.forEach(option => {
+        const el = document.createElement('option');
+        el.value = option.value;
+        el.textContent = option.label;
+        select.appendChild(el);
+      });
+
+      if (!date) return;
+
+      const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(date)}`);
+      const data = await response.json();
+      const bookedTimes = (data.bookings || []).map(booking => booking.appointment_time);
+
+      Array.from(select.options).forEach((option) => {
+        if (!option.value) return;
+        const [hour, minute] = option.value.split(':').map(Number);
+        const optionMinutes = (hour * 60) + minute;
+        const conflict = bookedTimes.some((booked) => {
+          const [bookedHour, bookedMinute] = booked.split(':').map(Number);
+          const bookedMinutesValue = (bookedHour * 60) + bookedMinute;
+          return Math.abs(bookedMinutesValue - optionMinutes) < 60;
+        });
+
+        if (conflict) {
+          option.textContent = `${option.textContent} (close to another booking)`;
+        }
+      });
+    }
+
+    document.querySelector('#manualBookingForm [name="appointmentDate"]').addEventListener('change', refreshAdminAvailability);
+
     document.getElementById('manualBookingForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
@@ -392,11 +433,26 @@
         status: form.elements.status.value,
       };
 
-      const response = await fetch(`${API_BASE}/api/admin/bookings`, {
+      let response = await fetch(`${API_BASE}/api/admin/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      if (response.status === 409) {
+        const result = await response.json();
+        if (result.needsConfirmation) {
+          const confirmed = window.confirm('This appointment is less than an hour from when another appointment is ending. Do you want to place it anyway?');
+          if (confirmed) {
+            payload.allowConflict = true;
+            response = await fetch(`${API_BASE}/api/admin/bookings`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          }
+        }
+      }
 
       document.getElementById('manualBookingStatus').innerHTML = response.ok
         ? '<div class="success">Booking saved.</div>'
@@ -404,6 +460,7 @@
 
       if (response.ok) {
         form.reset();
+        populateAdminTimeOptions();
         loadAdminData();
       }
     });
