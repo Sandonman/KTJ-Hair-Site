@@ -426,11 +426,10 @@
       }
     }
 
-    function populateAdminTimeOptions() {
-      const select = document.getElementById('manualAppointmentTime');
+    const ADMIN_BASE_TIME_OPTIONS = (() => {
+      const options = [{ value: '', label: 'Select Time' }];
       const startMinutes = 5 * 60;
       const endMinutes = 19 * 60;
-      let options = '<option value="">Select Time</option>';
 
       for (let minutes = startMinutes; minutes <= endMinutes; minutes += 30) {
         const hour24 = Math.floor(minutes / 60);
@@ -439,10 +438,17 @@
         const hour12 = ((hour24 + 11) % 12) + 1;
         const value = `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
         const label = `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`;
-        options += `<option value="${value}">${label}</option>`;
+        options.push({ value, label });
       }
 
-      select.innerHTML = options;
+      return options;
+    })();
+
+    function populateAdminTimeOptions() {
+      const select = document.getElementById('manualAppointmentTime');
+      select.innerHTML = ADMIN_BASE_TIME_OPTIONS
+        .map(option => `<option value="${option.value}">${option.label}</option>`)
+        .join('');
     }
 
     document.getElementById('manualServiceSelect').addEventListener('change', (event) => {
@@ -460,19 +466,8 @@
     async function refreshAdminAvailability() {
       const date = document.querySelector('#manualBookingForm [name="appointmentDate"]').value;
       const select = document.getElementById('manualAppointmentTime');
-      const allOptions = Array.from(select.querySelectorAll('option')).map(option => ({
-        value: option.value,
-        label: option.textContent
-      }));
 
-      select.innerHTML = '';
-
-      allOptions.forEach(option => {
-        const el = document.createElement('option');
-        el.value = option.value;
-        el.textContent = option.label;
-        select.appendChild(el);
-      });
+      populateAdminTimeOptions();
 
       if (!date) return;
 
@@ -482,8 +477,11 @@
       const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
       const requestedDuration = (SERVICE_DURATIONS[normalizeServiceKey(service)] || 120) + (addHaircut ? 30 : 0);
 
-      Array.from(select.options).forEach((option) => {
-        if (!option.value) return;
+      const rebuiltOptions = ADMIN_BASE_TIME_OPTIONS.map((option) => {
+        if (!option.value) {
+          return `<option value="">${option.label}</option>`;
+        }
+
         const [hour, minute] = option.value.split(':').map(Number);
         const optionMinutes = (hour * 60) + minute;
         const optionEnd = optionMinutes + requestedDuration;
@@ -504,22 +502,24 @@
         const endsTooLate = optionEnd > (19 * 60);
 
         if (overlap) {
-          option.textContent = `${option.textContent} ✕ overlaps existing booking`;
-          option.style.backgroundColor = '#f8d7da';
-          option.style.color = '#842029';
-        } else if (endsTooLate) {
-          option.textContent = `${option.textContent} ⚠ ends after 7:00 PM`;
-          option.style.backgroundColor = '#fde7e7';
-          option.style.color = '#9f1d1d';
-        } else if (conflict) {
-          option.textContent = `${option.textContent} ⚠ close to another booking`;
-          option.style.backgroundColor = '#fff4d6';
-          option.style.color = '#8a5a00';
-        } else {
-          option.style.backgroundColor = '';
-          option.style.color = '';
+          return '';
         }
-      });
+
+        let label = option.label;
+        let style = '';
+
+        if (endsTooLate) {
+          label = `${label} ⚠ ends after 7:00 PM`;
+          style = ' style="background-color:#fde7e7;color:#9f1d1d;"';
+        } else if (conflict) {
+          label = `${label} ⚠ close to another booking`;
+          style = ' style="background-color:#fff4d6;color:#8a5a00;"';
+        }
+
+        return `<option value="${option.value}"${style}>${label}</option>`;
+      }).join('');
+
+      select.innerHTML = rebuiltOptions;
     }
 
     document.querySelector('#manualBookingForm [name="appointmentDate"]').addEventListener('change', refreshAdminAvailability);
