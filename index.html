@@ -241,6 +241,19 @@
             return (hours * 60) + minutes;
         }
 
+        function getBookingDuration(booking) {
+            const baseDuration = SERVICE_DURATIONS[booking.service] || 120;
+            return baseDuration + (booking.add_haircut ? 30 : 0);
+        }
+
+        function hasBookingConflict(optionStart, requestedDuration, booking) {
+            const bookedStart = minutesFromTime(booking.appointment_time);
+            const bookedDuration = getBookingDuration(booking);
+            const bookedEnd = bookedStart + bookedDuration;
+            const requestedEnd = optionStart + requestedDuration;
+            return optionStart < (bookedEnd + 60) && bookedStart < (requestedEnd + 60);
+        }
+
         async function refreshClientAvailability() {
             const date = document.getElementById('appointment-date').value;
             const timeSelect = document.getElementById('appointment-time');
@@ -269,13 +282,7 @@
             BASE_TIME_OPTIONS.forEach(option => {
                 const optionMinutes = minutesFromTime(option.value);
                 const optionEnd = optionMinutes + requestedDuration;
-                const blocked = (data.bookings || []).some((booking) => {
-                    const bookedStart = minutesFromTime(booking.appointment_time);
-                    const bookedDurationBase = SERVICE_DURATIONS[booking.service] || 120;
-                    const bookedDuration = bookedDurationBase + (booking.add_haircut ? 30 : 0);
-                    const bookedEnd = bookedStart + bookedDuration;
-                    return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
-                });
+                const blocked = (data.bookings || []).some((booking) => hasBookingConflict(optionMinutes, requestedDuration, booking));
                 const endsTooLate = optionEnd > (19 * 60);
 
                 if (!blocked && !endsTooLate) {
