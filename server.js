@@ -119,6 +119,36 @@ function hasConflict(existingBookings, appointmentTime, bufferMinutes = 60) {
   return existingBookings.some((booking) => Math.abs(timeToMinutes(booking.appointment_time) - requested) < bufferMinutes);
 }
 
+async function ensureClientRecord({ name, phone, email }) {
+  const { data: existingByPhone, error: phoneError } = await supabase
+    .from('client_notes')
+    .select('id')
+    .eq('client_phone', phone)
+    .limit(1);
+
+  if (phoneError) throw phoneError;
+  if (existingByPhone && existingByPhone.length > 0) return;
+
+  const { data: existingByName, error: nameError } = await supabase
+    .from('client_notes')
+    .select('id')
+    .ilike('client_name', name)
+    .limit(1);
+
+  if (nameError) throw nameError;
+  if (existingByName && existingByName.length > 0) return;
+
+  const { error: insertError } = await supabase
+    .from('client_notes')
+    .insert({
+      client_name: name,
+      client_phone: phone || null,
+      client_email: email || null,
+    });
+
+  if (insertError) throw insertError;
+}
+
 app.post(
   '/api/bookings',
   upload.fields([
@@ -177,6 +207,8 @@ app.post(
         .single();
 
       if (error) throw error;
+
+      await ensureClientRecord({ name, phone, email });
 
       res.status(201).json({ booking: data });
     } catch (error) {
@@ -266,6 +298,8 @@ app.post('/api/admin/bookings', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    await ensureClientRecord({ name, phone, email });
 
     res.status(201).json({ booking: data });
   } catch (error) {
