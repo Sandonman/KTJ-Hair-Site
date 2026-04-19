@@ -212,6 +212,7 @@
             if (!servicesWithHaircut.includes(serviceSelect.value)) {
                 addHaircutCheckbox.disabled = true;
             }
+            refreshClientAvailability();
         }
 
         function getNextTwelveThursdays() {
@@ -236,15 +237,15 @@
             { value: '11:30', label: '11:30 AM' },
             { value: '12:00', label: '12:00 PM' },
             { value: '12:30', label: '12:30 PM' },
-            { value: '01:00', label: '01:00 PM' },
-            { value: '01:30', label: '01:30 PM' },
-            { value: '02:00', label: '02:00 PM' },
-            { value: '02:30', label: '02:30 PM' },
-            { value: '03:00', label: '03:00 PM' },
-            { value: '03:30', label: '03:30 PM' },
-            { value: '04:00', label: '04:00 PM' },
-            { value: '04:30', label: '04:30 PM' },
-            { value: '05:00', label: '05:00 PM' }
+            { value: '13:00', label: '01:00 PM' },
+            { value: '13:30', label: '01:30 PM' },
+            { value: '14:00', label: '02:00 PM' },
+            { value: '14:30', label: '02:30 PM' },
+            { value: '15:00', label: '03:00 PM' },
+            { value: '15:30', label: '03:30 PM' },
+            { value: '16:00', label: '04:00 PM' },
+            { value: '16:30', label: '04:30 PM' },
+            { value: '17:00', label: '05:00 PM' }
         ];
 
         function minutesFromTime(value) {
@@ -429,6 +430,7 @@
                 const result = await response.json();
                 form.reset();
                 document.getElementById('add-haircut').disabled = true;
+                refreshClientAvailability();
                 showBookingReceipt(result.booking);
             } else {
                 alert('Booking submission failed. Please try again.');
@@ -470,6 +472,7 @@
 
         window.onload = function() {
             populateDateDropdown();
+            refreshClientAvailability();
             document.getElementById('appointment-date').addEventListener('change', refreshClientAvailability);
             document.getElementById('service-select').addEventListener('change', refreshClientAvailability);
             document.getElementById('add-haircut').addEventListener('change', refreshClientAvailability);
