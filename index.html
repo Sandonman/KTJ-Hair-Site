@@ -276,8 +276,9 @@
                     const bookedEnd = bookedStart + bookedDuration;
                     return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
                 });
+                const endsTooLate = optionEnd > (19 * 60);
 
-                if (!blocked) {
+                if (!blocked && !endsTooLate) {
                     const el = document.createElement('option');
                     el.value = option.value;
                     el.textContent = option.label;

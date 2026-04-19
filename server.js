@@ -132,6 +132,12 @@ function getServiceDuration(service, addHaircut = false) {
   return baseDuration + (addHaircut ? 30 : 0);
 }
 
+function endsByClose(appointmentTime, requestedDuration, closeMinutes = 19 * 60) {
+  const requestedStart = timeToMinutes(appointmentTime);
+  const requestedEnd = requestedStart + requestedDuration;
+  return requestedEnd <= closeMinutes;
+}
+
 function hasConflict(existingBookings, appointmentTime, requestedDuration, bufferMinutes = 60) {
   const requestedStart = timeToMinutes(appointmentTime);
   const requestedEnd = requestedStart + requestedDuration;
@@ -209,6 +215,10 @@ app.post(
       if (fetchError) throw fetchError;
 
       const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
+
+      if (!endsByClose(appointmentTime, requestedDuration)) {
+        return res.status(409).json({ error: 'That appointment would run past 7:00 PM. Please choose an earlier time.' });
+      }
 
       if (hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60)) {
         return res.status(409).json({ error: 'That time is unavailable. Please choose a different appointment time.' });
@@ -303,6 +313,12 @@ app.post('/api/admin/bookings', async (req, res) => {
     if (fetchError) throw fetchError;
 
     const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
+    if (!endsByClose(appointmentTime, requestedDuration)) {
+      return res.status(409).json({
+        error: 'This appointment would run past 7:00 PM.',
+      });
+    }
+
     const conflict = hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60);
     const allowConflict = req.body.allowConflict === 'true' || req.body.allowConflict === true;
 

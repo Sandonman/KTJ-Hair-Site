@@ -478,8 +478,13 @@
           const bookedEnd = bookedStart + bookedDuration;
           return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
         });
+        const endsTooLate = optionEnd > (19 * 60);
 
-        if (conflict) {
+        if (endsTooLate) {
+          option.textContent = `${option.textContent} ✕ ends after 7:00 PM`;
+          option.style.backgroundColor = '#fde7e7';
+          option.style.color = '#9f1d1d';
+        } else if (conflict) {
           option.textContent = `${option.textContent} ⚠ close to another booking`;
           option.style.backgroundColor = '#fff4d6';
           option.style.color = '#8a5a00';
