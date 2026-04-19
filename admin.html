@@ -242,13 +242,49 @@
       `;
     }
 
+    function getClientAppointments(note) {
+      const matchingBookings = bookings.filter((booking) => {
+        const sameName = (booking.name || '').trim().toLowerCase() === (note.client_name || '').trim().toLowerCase();
+        const samePhone = note.client_phone && booking.phone && note.client_phone.trim() === booking.phone.trim();
+        return sameName || samePhone;
+      });
+
+      const now = new Date();
+      const parsed = matchingBookings.map((booking) => {
+        const dateTime = new Date(`${booking.appointment_date} ${booking.appointment_time}`);
+        return { ...booking, parsedDate: dateTime };
+      }).filter((booking) => !Number.isNaN(booking.parsedDate.getTime()));
+
+      const past = parsed
+        .filter((booking) => booking.parsedDate < now)
+        .sort((a, b) => b.parsedDate - a.parsedDate);
+      const upcoming = parsed
+        .filter((booking) => booking.parsedDate >= now)
+        .sort((a, b) => a.parsedDate - b.parsedDate);
+
+      return {
+        last: past[0] || null,
+        upcoming: upcoming[0] || null,
+      };
+    }
+
     function noteCard(note) {
+      const appointments = getClientAppointments(note);
+      const lastAppointment = appointments.last
+        ? `${appointments.last.appointment_date} at ${appointments.last.appointment_time}`
+        : 'None found';
+      const upcomingAppointment = appointments.upcoming
+        ? `${appointments.upcoming.appointment_date} at ${appointments.upcoming.appointment_time}`
+        : 'None scheduled';
+
       return `
         <div class="card">
           <div class="meta">${new Date(note.created_at).toLocaleString()}</div>
           <strong>${note.client_name}</strong><br>
           ${note.client_email || ''}<br>
           ${note.client_phone || ''}<br><br>
+          <strong>Last Appointment:</strong> ${lastAppointment}<br>
+          <strong>Upcoming Appointment:</strong> ${upcomingAppointment}<br><br>
           <strong>Formula Notes:</strong> ${note.formula_notes || 'None'}<br><br>
           <strong>Style Notes:</strong> ${note.style_notes || 'None'}<br><br>
           <strong>General Notes:</strong> ${note.general_notes || 'None'}
