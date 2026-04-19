@@ -471,6 +471,13 @@
         const [hour, minute] = option.value.split(':').map(Number);
         const optionMinutes = (hour * 60) + minute;
         const optionEnd = optionMinutes + requestedDuration;
+        const overlap = (data.bookings || []).some((booking) => {
+          const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
+          const bookedStart = (bookedHour * 60) + bookedMinute;
+          const bookedDuration = (SERVICE_DURATIONS[booking.service] || 120) + (booking.add_haircut ? 30 : 0);
+          const bookedEnd = bookedStart + bookedDuration;
+          return optionMinutes < bookedEnd && bookedStart < optionEnd;
+        });
         const conflict = (data.bookings || []).some((booking) => {
           const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
           const bookedStart = (bookedHour * 60) + bookedMinute;
@@ -480,8 +487,12 @@
         });
         const endsTooLate = optionEnd > (19 * 60);
 
-        if (endsTooLate) {
-          option.textContent = `${option.textContent} ✕ ends after 7:00 PM`;
+        if (overlap) {
+          option.textContent = `${option.textContent} ✕ overlaps existing booking`;
+          option.style.backgroundColor = '#f8d7da';
+          option.style.color = '#842029';
+        } else if (endsTooLate) {
+          option.textContent = `${option.textContent} ⚠ ends after 7:00 PM`;
           option.style.backgroundColor = '#fde7e7';
           option.style.color = '#9f1d1d';
         } else if (conflict) {
@@ -532,7 +543,7 @@
       if (response.status === 409) {
         const result = await response.json();
         if (result.needsConfirmation) {
-          const confirmed = window.confirm('This appointment is less than an hour from when another appointment is ending. Do you want to place it anyway?');
+          const confirmed = window.confirm(`${result.error} Do you want to place it anyway?`);
           if (confirmed) {
             payload.allowConflict = true;
             response = await fetch(`${API_BASE}/api/admin/bookings`, {

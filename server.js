@@ -138,6 +138,18 @@ function endsByClose(appointmentTime, requestedDuration, closeMinutes = 19 * 60)
   return requestedEnd <= closeMinutes;
 }
 
+function hasOverlap(existingBookings, appointmentTime, requestedDuration) {
+  const requestedStart = timeToMinutes(appointmentTime);
+  const requestedEnd = requestedStart + requestedDuration;
+
+  return existingBookings.some((booking) => {
+    const existingStart = timeToMinutes(booking.appointment_time);
+    const existingDuration = getServiceDuration(booking.service, booking.add_haircut);
+    const existingEnd = existingStart + existingDuration;
+    return requestedStart < existingEnd && existingStart < requestedEnd;
+  });
+}
+
 function hasConflict(existingBookings, appointmentTime, requestedDuration, bufferMinutes = 60) {
   const requestedStart = timeToMinutes(appointmentTime);
   const requestedEnd = requestedStart + requestedDuration;
@@ -313,18 +325,22 @@ app.post('/api/admin/bookings', async (req, res) => {
     if (fetchError) throw fetchError;
 
     const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
-    if (!endsByClose(appointmentTime, requestedDuration)) {
+    if (hasOverlap(existingBookings || [], appointmentTime, requestedDuration)) {
       return res.status(409).json({
-        error: 'This appointment would run past 7:00 PM.',
+        error: 'This appointment overlaps an existing booking.',
       });
     }
 
     const conflict = hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60);
+    const endsLate = !endsByClose(appointmentTime, requestedDuration);
     const allowConflict = req.body.allowConflict === 'true' || req.body.allowConflict === true;
 
-    if (conflict && !allowConflict) {
+    if ((conflict || endsLate) && !allowConflict) {
+      const warningParts = [];
+      if (conflict) warningParts.push('less than an hour from another booking');
+      if (endsLate) warningParts.push('it would end after 7:00 PM');
       return res.status(409).json({
-        error: 'This appointment is less than an hour from another booking.',
+        error: `Warning: this appointment is ${warningParts.join(' and ')}.`,
         needsConfirmation: true,
       });
     }
