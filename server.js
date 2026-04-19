@@ -79,7 +79,7 @@ app.get('/api/bookings/availability', async (req, res) => {
 
     const { data, error } = await supabase
       .from('bookings')
-      .select('id, appointment_date, appointment_time, service, status')
+      .select('id, appointment_date, appointment_time, service, add_haircut, status')
       .eq('appointment_date', date)
       .order('appointment_time', { ascending: true });
 
@@ -109,14 +109,43 @@ async function uploadFileToBucket(file, folder = 'bookings') {
   return safeName;
 }
 
+const SERVICE_DURATIONS = {
+  haircut: 120,
+  'full-highlight': 240,
+  'partial-highlight': 180,
+  'area-highlight': 120,
+  'all-over-color': 120,
+  'root-touch-up': 90,
+  'partial-highlight-grey': 180,
+  gloss: 90,
+  'gloss-haircut': 150,
+  other: 120,
+};
+
 function timeToMinutes(value) {
   const [hours, minutes] = value.split(':').map(Number);
   return (hours * 60) + minutes;
 }
 
-function hasConflict(existingBookings, appointmentTime, bufferMinutes = 60) {
-  const requested = timeToMinutes(appointmentTime);
-  return existingBookings.some((booking) => Math.abs(timeToMinutes(booking.appointment_time) - requested) < bufferMinutes);
+function getServiceDuration(service, addHaircut = false) {
+  const baseDuration = SERVICE_DURATIONS[service] || SERVICE_DURATIONS.other;
+  return baseDuration + (addHaircut ? 30 : 0);
+}
+
+function hasConflict(existingBookings, appointmentTime, requestedDuration, bufferMinutes = 60) {
+  const requestedStart = timeToMinutes(appointmentTime);
+  const requestedEnd = requestedStart + requestedDuration;
+
+  return existingBookings.some((booking) => {
+    const existingStart = timeToMinutes(booking.appointment_time);
+    const existingDuration = getServiceDuration(booking.service, booking.add_haircut);
+    const existingEnd = existingStart + existingDuration;
+
+    const requestedBlockedEnd = requestedEnd + bufferMinutes;
+    const existingBlockedEnd = existingEnd + bufferMinutes;
+
+    return requestedStart < existingBlockedEnd && existingStart < requestedBlockedEnd;
+  });
 }
 
 async function ensureClientRecord({ name, phone, email }) {
@@ -174,12 +203,14 @@ app.post(
 
       const { data: existingBookings, error: fetchError } = await supabase
         .from('bookings')
-        .select('appointment_time')
+        .select('appointment_time, service, add_haircut')
         .eq('appointment_date', appointmentDate);
 
       if (fetchError) throw fetchError;
 
-      if (hasConflict(existingBookings || [], appointmentTime, 60)) {
+      const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
+
+      if (hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60)) {
         return res.status(409).json({ error: 'That time is unavailable. Please choose a different appointment time.' });
       }
 
@@ -266,12 +297,13 @@ app.post('/api/admin/bookings', async (req, res) => {
 
     const { data: existingBookings, error: fetchError } = await supabase
       .from('bookings')
-      .select('appointment_time')
+      .select('appointment_time, service, add_haircut')
       .eq('appointment_date', appointmentDate);
 
     if (fetchError) throw fetchError;
 
-    const conflict = hasConflict(existingBookings || [], appointmentTime, 60);
+    const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
+    const conflict = hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60);
     const allowConflict = req.body.allowConflict === 'true' || req.body.allowConflict === true;
 
     if (conflict && !allowConflict) {

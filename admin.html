@@ -203,6 +203,18 @@
 
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
+    const SERVICE_DURATIONS = {
+      'haircut': 120,
+      'full-highlight': 240,
+      'partial-highlight': 180,
+      'area-highlight': 120,
+      'all-over-color': 120,
+      'root-touch-up': 90,
+      'partial-highlight-grey': 180,
+      'gloss': 90,
+      'gloss-haircut': 150,
+      'other': 120,
+    };
     let bookings = [];
     let clientNotes = [];
     let currentCalendarDate = new Date();
@@ -450,16 +462,21 @@
 
       const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(date)}`);
       const data = await response.json();
-      const bookedTimes = (data.bookings || []).map(booking => booking.appointment_time);
+      const service = document.getElementById('manualServiceSelect').value;
+      const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
+      const requestedDuration = (SERVICE_DURATIONS[service] || 120) + (addHaircut ? 30 : 0);
 
       Array.from(select.options).forEach((option) => {
         if (!option.value) return;
         const [hour, minute] = option.value.split(':').map(Number);
         const optionMinutes = (hour * 60) + minute;
-        const conflict = bookedTimes.some((booked) => {
-          const [bookedHour, bookedMinute] = booked.split(':').map(Number);
-          const bookedMinutesValue = (bookedHour * 60) + bookedMinute;
-          return Math.abs(bookedMinutesValue - optionMinutes) < 60;
+        const optionEnd = optionMinutes + requestedDuration;
+        const conflict = (data.bookings || []).some((booking) => {
+          const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
+          const bookedStart = (bookedHour * 60) + bookedMinute;
+          const bookedDuration = (SERVICE_DURATIONS[booking.service] || 120) + (booking.add_haircut ? 30 : 0);
+          const bookedEnd = bookedStart + bookedDuration;
+          return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
         });
 
         if (conflict) {
@@ -474,6 +491,8 @@
     }
 
     document.querySelector('#manualBookingForm [name="appointmentDate"]').addEventListener('change', refreshAdminAvailability);
+    document.getElementById('manualServiceSelect').addEventListener('change', refreshAdminAvailability);
+    document.querySelector('#manualBookingForm [name="addHaircut"]').addEventListener('change', refreshAdminAvailability);
     document.getElementById('prevMonthBtn').addEventListener('click', () => {
       currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1);
       renderCalendar(bookings);

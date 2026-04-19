@@ -238,7 +238,7 @@
 
             const response = await fetch(`https://ktj-hair-site.onrender.com/api/bookings/availability?date=${encodeURIComponent(date)}`);
             const data = await response.json();
-            const bookedTimes = new Set((data.bookings || []).map(booking => booking.appointment_time));
+            const requestedDuration = getRequestedDuration();
 
             allOptions.forEach(option => {
                 if (!option.value) {
@@ -251,10 +251,14 @@
 
                 const [hour, minute] = option.value.split(':').map(Number);
                 const optionMinutes = (hour * 60) + minute;
-                const blocked = Array.from(bookedTimes).some((booked) => {
-                    const [bookedHour, bookedMinute] = booked.split(':').map(Number);
-                    const bookedMinutesValue = (bookedHour * 60) + bookedMinute;
-                    return Math.abs(bookedMinutesValue - optionMinutes) < 60;
+                const optionEnd = optionMinutes + requestedDuration;
+                const blocked = (data.bookings || []).some((booking) => {
+                    const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
+                    const bookedStart = (bookedHour * 60) + bookedMinute;
+                    const bookedDurationBase = SERVICE_DURATIONS[booking.service] || 120;
+                    const bookedDuration = bookedDurationBase + (booking.add_haircut ? 30 : 0);
+                    const bookedEnd = bookedStart + bookedDuration;
+                    return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
                 });
 
                 if (!blocked) {
@@ -264,6 +268,25 @@
                     timeSelect.appendChild(el);
                 }
             });
+        }
+
+        const SERVICE_DURATIONS = {
+            haircut: 120,
+            'full-highlight': 240,
+            'partial-highlight': 180,
+            'area-highlight': 120,
+            'all-over-color': 120,
+            'root-touch-up': 90,
+            'partial-highlight-grey': 180,
+            gloss: 90,
+            'gloss-haircut': 150
+        };
+
+        function getRequestedDuration() {
+            const service = document.getElementById('service-select').value;
+            const addHaircut = document.getElementById('add-haircut').checked;
+            const base = SERVICE_DURATIONS[service] || 120;
+            return base + (addHaircut ? 30 : 0);
         }
 
         function populateDateDropdown() {
@@ -362,6 +385,8 @@
         window.onload = function() {
             populateDateDropdown();
             document.getElementById('appointment-date').addEventListener('change', refreshClientAvailability);
+            document.getElementById('service-select').addEventListener('change', refreshClientAvailability);
+            document.getElementById('add-haircut').addEventListener('change', refreshClientAvailability);
             document.querySelector('.booking-form').addEventListener('submit', handleBookingSubmit);
             document.querySelector('.contact-form').addEventListener('submit', handleContactSubmit);
         };
