@@ -215,13 +215,24 @@
       'all-over-color': 120,
       'root-touch-up': 90,
       'partial-highlight-grey': 180,
+      'partial highlight': 180,
+      'partial highlight/grey coverage': 180,
       'gloss': 90,
       'gloss-haircut': 150,
+      'gloss and haircut': 150,
+      'full highlight': 240,
+      'area highlight': 120,
+      'all over color': 120,
+      'root touch up': 90,
       'other': 120,
     };
     let bookings = [];
     let clientNotes = [];
     let currentCalendarDate = new Date();
+
+    function normalizeServiceKey(service) {
+      return (service || '').trim().toLowerCase();
+    }
 
     function renderEmpty(el, text) {
       el.innerHTML = `<div class="empty">${text}</div>`;
@@ -469,7 +480,7 @@
       const data = await response.json();
       const service = document.getElementById('manualServiceSelect').value;
       const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
-      const requestedDuration = (SERVICE_DURATIONS[service] || 120) + (addHaircut ? 30 : 0);
+      const requestedDuration = (SERVICE_DURATIONS[normalizeServiceKey(service)] || 120) + (addHaircut ? 30 : 0);
 
       Array.from(select.options).forEach((option) => {
         if (!option.value) return;
@@ -479,14 +490,14 @@
         const overlap = (data.bookings || []).some((booking) => {
           const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
           const bookedStart = (bookedHour * 60) + bookedMinute;
-          const bookedDuration = (SERVICE_DURATIONS[booking.service] || 120) + (booking.add_haircut ? 30 : 0);
+          const bookedDuration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
           const bookedEnd = bookedStart + bookedDuration;
           return optionMinutes < bookedEnd && bookedStart < optionEnd;
         });
         const conflict = (data.bookings || []).some((booking) => {
           const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
           const bookedStart = (bookedHour * 60) + bookedMinute;
-          const bookedDuration = (SERVICE_DURATIONS[booking.service] || 120) + (booking.add_haircut ? 30 : 0);
+          const bookedDuration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
           const bookedEnd = bookedStart + bookedDuration;
           return optionMinutes < (bookedEnd + 60) && bookedStart < (optionEnd + 60);
         });

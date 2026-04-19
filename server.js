@@ -117,8 +117,15 @@ const SERVICE_DURATIONS = {
   'all-over-color': 120,
   'root-touch-up': 90,
   'partial-highlight-grey': 180,
+  'partial highlight': 180,
+  'partial highlight/grey coverage': 180,
   gloss: 90,
   'gloss-haircut': 150,
+  'gloss and haircut': 150,
+  'full highlight': 240,
+  'area highlight': 120,
+  'all over color': 120,
+  'root touch up': 90,
   other: 120,
 };
 
@@ -127,8 +134,12 @@ function timeToMinutes(value) {
   return (hours * 60) + minutes;
 }
 
+function normalizeServiceKey(service) {
+  return (service || '').trim().toLowerCase();
+}
+
 function getServiceDuration(service, addHaircut = false) {
-  const baseDuration = SERVICE_DURATIONS[service] || SERVICE_DURATIONS.other;
+  const baseDuration = SERVICE_DURATIONS[normalizeServiceKey(service)] || SERVICE_DURATIONS.other;
   return baseDuration + (addHaircut ? 30 : 0);
 }
 

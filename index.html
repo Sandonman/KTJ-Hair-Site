@@ -252,8 +252,13 @@
             return (hours * 60) + minutes;
         }
 
+        function normalizeServiceKey(service) {
+            return (service || '').trim().toLowerCase();
+        }
+
         function getBookingDuration(booking) {
-            const baseDuration = SERVICE_DURATIONS[booking.service] || 120;
+            const serviceKey = normalizeServiceKey(booking.service);
+            const baseDuration = SERVICE_DURATIONS[serviceKey] || 120;
             return baseDuration + (booking.add_haircut ? 30 : 0);
         }
 
@@ -306,7 +311,8 @@
                 } else {
                     const reasons = [];
                     if (conflictingBooking) {
-                        reasons.push(`conflicts with ${conflictingBooking.service} at ${conflictingBooking.appointment_time}`);
+                        const durationMinutes = getBookingDuration(conflictingBooking);
+                        reasons.push(`conflicts with ${conflictingBooking.service} at ${conflictingBooking.appointment_time} (${durationMinutes} min total)`);
                     }
                     if (endsTooLate) {
                         reasons.push('would end after 7:00 PM');
@@ -331,12 +337,19 @@
             'all-over-color': 120,
             'root-touch-up': 90,
             'partial-highlight-grey': 180,
+            'partial highlight': 180,
+            'partial highlight/grey coverage': 180,
             gloss: 90,
-            'gloss-haircut': 150
+            'gloss-haircut': 150,
+            'gloss and haircut': 150,
+            'full highlight': 240,
+            'area highlight': 120,
+            'all over color': 120,
+            'root touch up': 90
         };
 
         function getRequestedDuration() {
-            const service = document.getElementById('service-select').value;
+            const service = normalizeServiceKey(document.getElementById('service-select').value);
             const addHaircut = document.getElementById('add-haircut').checked;
             const base = SERVICE_DURATIONS[service] || 120;
             return base + (addHaircut ? 30 : 0);
