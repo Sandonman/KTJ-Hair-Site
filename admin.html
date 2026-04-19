@@ -118,6 +118,10 @@
       font-weight: bold;
       text-align: center;
     }
+    .danger-button {
+      background: #b42318;
+      margin-top: 12px;
+    }
   </style>
 </head>
 <body>
@@ -236,6 +240,7 @@
           <strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}<br>
           <strong>Status:</strong> ${booking.status}<br><br>
           <strong>Notes:</strong> ${booking.notes || 'None'}
+          <button type="button" class="danger-button" onclick="deleteBooking('${booking.id}')">Delete Booking</button>
         </div>
       `;
     }
@@ -517,6 +522,25 @@
       currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1);
       renderCalendar(bookings);
     });
+
+    async function deleteBooking(bookingId) {
+      const confirmed = window.confirm('Delete this booking? This cannot be undone.');
+      if (!confirmed) return;
+
+      const reconfirmed = window.confirm('Please confirm again: permanently delete this booking?');
+      if (!reconfirmed) return;
+
+      const response = await fetch(`${API_BASE}/api/admin/bookings/${bookingId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        document.getElementById('manualBookingStatus').innerHTML = '<div class="success">Booking deleted.</div>';
+        await loadAdminData();
+      } else {
+        document.getElementById('manualBookingStatus').innerHTML = '<div class="empty">Failed to delete booking.</div>';
+      }
+    }
 
     document.getElementById('manualBookingForm').addEventListener('submit', async (event) => {
       event.preventDefault();
