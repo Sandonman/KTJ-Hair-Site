@@ -190,6 +190,17 @@
         .contact-confirmation.active {
             display: flex;
         }
+        .availability-debug {
+            margin-top: 10px;
+            padding: 10px 12px;
+            width: 100%;
+            background: #f6f1ff;
+            border: 1px solid #d8c9ff;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #4b2f7f;
+            text-align: left;
+        }
     </style>
     <script>
         function toggleHaircutOption() {
@@ -279,19 +290,37 @@
             const data = await response.json();
             const requestedDuration = getRequestedDuration();
 
+            const debugMessages = [];
+
             BASE_TIME_OPTIONS.forEach(option => {
                 const optionMinutes = minutesFromTime(option.value);
                 const optionEnd = optionMinutes + requestedDuration;
-                const blocked = (data.bookings || []).some((booking) => hasBookingConflict(optionMinutes, requestedDuration, booking));
+                const conflictingBooking = (data.bookings || []).find((booking) => hasBookingConflict(optionMinutes, requestedDuration, booking));
                 const endsTooLate = optionEnd > (19 * 60);
 
-                if (!blocked && !endsTooLate) {
+                if (!conflictingBooking && !endsTooLate) {
                     const el = document.createElement('option');
                     el.value = option.value;
                     el.textContent = option.label;
                     timeSelect.appendChild(el);
+                } else {
+                    const reasons = [];
+                    if (conflictingBooking) {
+                        reasons.push(`conflicts with ${conflictingBooking.service} at ${conflictingBooking.appointment_time}`);
+                    }
+                    if (endsTooLate) {
+                        reasons.push('would end after 7:00 PM');
+                    }
+                    debugMessages.push(`${option.label}: ${reasons.join(' and ')}`);
                 }
             });
+
+            const debugEl = document.getElementById('availabilityDebug');
+            if (debugEl) {
+                debugEl.innerHTML = debugMessages.length
+                    ? `<strong>Filtered times:</strong><br>${debugMessages.join('<br>')}`
+                    : '<strong>Filtered times:</strong><br>None';
+            }
         }
 
         const SERVICE_DURATIONS = {
@@ -554,6 +583,7 @@
             </select>
             <label for="appointment-time">Select Appointment Time:</label>
             <select id="appointment-time" name="appointmentTime" required>
+                <option value="">Select a time...</option>
                 <option value="09:00">09:00 AM</option>
                 <option value="09:30">09:30 AM</option>
                 <option value="10:00">10:00 AM</option>
@@ -572,6 +602,7 @@
                 <option value="04:30">04:30 PM</option>
                 <option value="05:00">05:00 PM</option>
             </select>
+            <div id="availabilityDebug" class="availability-debug">Select a date and service to see filtered times.</div>
             <textarea name="notes" placeholder="Any notes about your service"></textarea>
             <div class="upload-note">
                 Photo uploads are optional, but recommended for new clients so Katie can better prepare for your appointment.
