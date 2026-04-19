@@ -216,18 +216,44 @@
             return thursdays;
         }
 
+        const BASE_TIME_OPTIONS = [
+            { value: '09:00', label: '09:00 AM' },
+            { value: '09:30', label: '09:30 AM' },
+            { value: '10:00', label: '10:00 AM' },
+            { value: '10:30', label: '10:30 AM' },
+            { value: '11:00', label: '11:00 AM' },
+            { value: '11:30', label: '11:30 AM' },
+            { value: '12:00', label: '12:00 PM' },
+            { value: '12:30', label: '12:30 PM' },
+            { value: '01:00', label: '01:00 PM' },
+            { value: '01:30', label: '01:30 PM' },
+            { value: '02:00', label: '02:00 PM' },
+            { value: '02:30', label: '02:30 PM' },
+            { value: '03:00', label: '03:00 PM' },
+            { value: '03:30', label: '03:30 PM' },
+            { value: '04:00', label: '04:00 PM' },
+            { value: '04:30', label: '04:30 PM' },
+            { value: '05:00', label: '05:00 PM' }
+        ];
+
+        function minutesFromTime(value) {
+            const [hours, minutes] = value.split(':').map(Number);
+            return (hours * 60) + minutes;
+        }
+
         async function refreshClientAvailability() {
             const date = document.getElementById('appointment-date').value;
             const timeSelect = document.getElementById('appointment-time');
-            const allOptions = Array.from(timeSelect.querySelectorAll('option')).map(option => ({
-                value: option.value,
-                label: option.textContent
-            }));
 
             timeSelect.innerHTML = '';
 
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a time...';
+            timeSelect.appendChild(placeholder);
+
             if (!date) {
-                allOptions.forEach(option => {
+                BASE_TIME_OPTIONS.forEach(option => {
                     const el = document.createElement('option');
                     el.value = option.value;
                     el.textContent = option.label;
@@ -240,21 +266,11 @@
             const data = await response.json();
             const requestedDuration = getRequestedDuration();
 
-            allOptions.forEach(option => {
-                if (!option.value) {
-                    const el = document.createElement('option');
-                    el.value = option.value;
-                    el.textContent = option.label;
-                    timeSelect.appendChild(el);
-                    return;
-                }
-
-                const [hour, minute] = option.value.split(':').map(Number);
-                const optionMinutes = (hour * 60) + minute;
+            BASE_TIME_OPTIONS.forEach(option => {
+                const optionMinutes = minutesFromTime(option.value);
                 const optionEnd = optionMinutes + requestedDuration;
                 const blocked = (data.bookings || []).some((booking) => {
-                    const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
-                    const bookedStart = (bookedHour * 60) + bookedMinute;
+                    const bookedStart = minutesFromTime(booking.appointment_time);
                     const bookedDurationBase = SERVICE_DURATIONS[booking.service] || 120;
                     const bookedDuration = bookedDurationBase + (booking.add_haircut ? 30 : 0);
                     const bookedEnd = bookedStart + bookedDuration;
