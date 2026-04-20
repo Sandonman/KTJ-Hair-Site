@@ -122,6 +122,46 @@
       background: #b42318;
       margin-top: 12px;
     }
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .photo-thumb {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      background: #f8f8f8;
+    }
+    .photo-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      text-align: center;
+    }
+    .image-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 2000;
+    }
+    .image-modal.active {
+      display: flex;
+    }
+    .image-modal img {
+      max-width: 95vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
   </style>
 </head>
 <body>
@@ -205,6 +245,10 @@
     <div id="messages"></div>
   </div>
 
+  <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+    <img id="imageModalPreview" src="" alt="Preview" onclick="event.stopPropagation()" />
+  </div>
+
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
     const SERVICE_DURATIONS = {
@@ -238,6 +282,16 @@
       el.innerHTML = `<div class="empty">${text}</div>`;
     }
 
+    function renderPhotoThumb(url, label) {
+      if (!url) return '';
+      return `
+        <div>
+          <img src="${url}" alt="${label}" class="photo-thumb" onclick="openImageModal('${url}')" />
+          <div class="photo-label">${label}</div>
+        </div>
+      `;
+    }
+
     function bookingCard(booking) {
       return `
         <div class="card">
@@ -251,6 +305,10 @@
           <strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}<br>
           <strong>Status:</strong> ${booking.status}<br><br>
           <strong>Notes:</strong> ${booking.notes || 'None'}
+          <div class="photo-grid">
+            ${renderPhotoThumb(booking.current_hair_image_signed_url, 'Current Hair')}
+            ${renderPhotoThumb(booking.inspiration_image_signed_url, 'Inspiration')}
+          </div>
           <button type="button" class="danger-button" onclick="deleteBooking('${booking.id}')">Delete Booking</button>
         </div>
       `;
@@ -317,9 +375,21 @@
           <strong>Formula Notes:</strong> ${note.formula_notes || 'None'}<br><br>
           <strong>Style Notes:</strong> ${note.style_notes || 'None'}<br><br>
           <strong>General Notes:</strong> ${note.general_notes || 'None'}
-          ${note.hair_photo_path ? `<div><strong>Hair Photo Path:</strong><br><code>${note.hair_photo_path}</code></div>` : ''}
+          <div class="photo-grid">
+            ${renderPhotoThumb(note.hair_photo_signed_url, 'Client Record Photo')}
+          </div>
         </div>
       `;
+    }
+
+    function openImageModal(url) {
+      document.getElementById('imageModalPreview').src = url;
+      document.getElementById('imageModal').classList.add('active');
+    }
+
+    function closeImageModal() {
+      document.getElementById('imageModal').classList.remove('active');
+      document.getElementById('imageModalPreview').src = '';
     }
 
     function normalizeDateLabel(value) {

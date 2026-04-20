@@ -30,7 +30,13 @@ app.get('/api/admin/bookings', async (_req, res) => {
 
     if (error) throw error;
 
-    res.json({ bookings: data });
+    const bookingsWithImages = await Promise.all((data || []).map(async (booking) => ({
+      ...booking,
+      current_hair_image_signed_url: await getSignedImageUrl(booking.current_hair_image_url),
+      inspiration_image_signed_url: await getSignedImageUrl(booking.inspiration_image_url),
+    })));
+
+    res.json({ bookings: bookingsWithImages });
   } catch (error) {
     console.error('Admin bookings fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch bookings.' });
@@ -62,7 +68,12 @@ app.get('/api/admin/client-notes', async (_req, res) => {
 
     if (error) throw error;
 
-    res.json({ notes: data });
+    const notesWithImages = await Promise.all((data || []).map(async (note) => ({
+      ...note,
+      hair_photo_signed_url: await getSignedImageUrl(note.hair_photo_path),
+    })));
+
+    res.json({ notes: notesWithImages });
   } catch (error) {
     console.error('Admin client notes fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch client notes.' });
@@ -107,6 +118,17 @@ async function uploadFileToBucket(file, folder = 'bookings') {
   if (error) throw error;
 
   return safeName;
+}
+
+function getSignedImageUrl(path) {
+  if (!path) return null;
+  return supabase.storage
+    .from(process.env.SUPABASE_STORAGE_BUCKET)
+    .createSignedUrl(path, 60 * 60)
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return data?.signedUrl || null;
+    });
 }
 
 const SERVICE_DURATIONS = {
