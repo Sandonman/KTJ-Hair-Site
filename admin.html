@@ -328,13 +328,17 @@
       `;
     }
 
-    function getClientAppointments(note) {
-      const matchingBookings = bookings.filter((booking) => {
+    function getMatchingBookingsForClient(note) {
+      return bookings.filter((booking) => {
         const sameName = (booking.name || '').trim().toLowerCase() === (note.client_name || '').trim().toLowerCase();
         const samePhone = note.client_phone && booking.phone && note.client_phone.trim() === booking.phone.trim();
         const isCancelled = (booking.status || '').toLowerCase() === 'cancelled';
         return (sameName || samePhone) && !isCancelled;
       });
+    }
+
+    function getClientAppointments(note) {
+      const matchingBookings = getMatchingBookingsForClient(note);
 
       const now = new Date();
       const parsed = matchingBookings.map((booking) => {
@@ -357,12 +361,28 @@
 
     function noteCard(note) {
       const appointments = getClientAppointments(note);
+      const matchingBookings = getMatchingBookingsForClient(note);
       const lastAppointment = appointments.last
         ? `${appointments.last.appointment_date} at ${appointments.last.appointment_time}`
         : 'None found';
       const upcomingAppointment = appointments.upcoming
         ? `${appointments.upcoming.appointment_date} at ${appointments.upcoming.appointment_time}`
         : 'None scheduled';
+
+      const photoItems = [];
+
+      if (note.hair_photo_signed_url) {
+        photoItems.push(renderPhotoThumb(note.hair_photo_signed_url, 'Client Record Photo'));
+      }
+
+      matchingBookings.forEach((booking, index) => {
+        if (booking.current_hair_image_signed_url) {
+          photoItems.push(renderPhotoThumb(booking.current_hair_image_signed_url, `Current Hair ${index + 1}`));
+        }
+        if (booking.inspiration_image_signed_url) {
+          photoItems.push(renderPhotoThumb(booking.inspiration_image_signed_url, `Inspiration ${index + 1}`));
+        }
+      });
 
       return `
         <div class="card">
@@ -376,7 +396,7 @@
           <strong>Style Notes:</strong> ${note.style_notes || 'None'}<br><br>
           <strong>General Notes:</strong> ${note.general_notes || 'None'}
           <div class="photo-grid">
-            ${renderPhotoThumb(note.hair_photo_signed_url, 'Client Record Photo')}
+            ${photoItems.join('') || '<div class="empty">No photos yet.</div>'}
           </div>
         </div>
       `;
