@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
+const { Resend } = require('resend');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -16,6 +17,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
@@ -129,6 +132,92 @@ function getSignedImageUrl(path) {
       if (error) throw error;
       return data?.signedUrl || null;
     });
+}
+
+async function sendEmail({ to, subject, html }) {
+  if (!resend || !process.env.RESEND_FROM_EMAIL || !to) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL,
+    to,
+    subject,
+    html,
+  });
+}
+
+async function sendBookingEmails(booking) {
+  const clientHtml = `
+    <h2>KTJ Hair Booking Request Received</h2>
+    <p>Hi ${booking.name},</p>
+    <p>Your booking request has been received.</p>
+    <ul>
+      <li><strong>Service:</strong> ${booking.service}</li>
+      <li><strong>Date:</strong> ${booking.appointment_date}</li>
+      <li><strong>Time:</strong> ${booking.appointment_time}</li>
+      <li><strong>Status:</strong> ${booking.status || 'new'}</li>
+    </ul>
+    <p>Katie will follow up if anything needs to be adjusted.</p>
+  `;
+
+  const adminHtml = `
+    <h2>New Booking Request</h2>
+    <ul>
+      <li><strong>Name:</strong> ${booking.name}</li>
+      <li><strong>Phone:</strong> ${booking.phone}</li>
+      <li><strong>Email:</strong> ${booking.email}</li>
+      <li><strong>Service:</strong> ${booking.service}</li>
+      <li><strong>Date:</strong> ${booking.appointment_date}</li>
+      <li><strong>Time:</strong> ${booking.appointment_time}</li>
+      <li><strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}</li>
+      <li><strong>Notes:</strong> ${booking.notes || 'None'}</li>
+      <li><strong>Status:</strong> ${booking.status || 'new'}</li>
+    </ul>
+  `;
+
+  await Promise.allSettled([
+    sendEmail({
+      to: booking.email,
+      subject: 'KTJ Hair booking request received',
+      html: clientHtml,
+    }),
+    sendEmail({
+      to: process.env.KATIE_NOTIFICATION_EMAIL,
+      subject: 'New KTJ Hair booking request',
+      html: adminHtml,
+    }),
+  ]);
+}
+
+async function sendContactEmails(message) {
+  const clientHtml = `
+    <h2>KTJ Hair Message Received</h2>
+    <p>Hi ${message.name},</p>
+    <p>Your message has been received. Katie will reply to you soon.</p>
+  `;
+
+  const adminHtml = `
+    <h2>New Contact Message</h2>
+    <ul>
+      <li><strong>Name:</strong> ${message.name}</li>
+      <li><strong>Email:</strong> ${message.email}</li>
+      <li><strong>Phone:</strong> ${message.phone || 'None provided'}</li>
+    </ul>
+    <p><strong>Message:</strong></p>
+    <p>${message.message}</p>
+  `;
+
+  await Promise.allSettled([
+    sendEmail({
+      to: message.email,
+      subject: 'KTJ Hair message received',
+      html: clientHtml,
+    }),
+    sendEmail({
+      to: process.env.KATIE_NOTIFICATION_EMAIL,
+      subject: 'New KTJ Hair contact message',
+      html: adminHtml,
+    }),
+  ]);
 }
 
 const SERVICE_DURATIONS = {
@@ -295,6 +384,7 @@ app.post(
       if (error) throw error;
 
       await ensureClientRecord({ name, phone, email });
+      await sendBookingEmails(data);
 
       res.status(201).json({ booking: data });
     } catch (error) {
@@ -324,6 +414,8 @@ app.post('/api/contact', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    await sendContactEmails(data);
 
     res.status(201).json({ message: data });
   } catch (error) {
@@ -397,6 +489,7 @@ app.post('/api/admin/bookings', async (req, res) => {
     if (error) throw error;
 
     await ensureClientRecord({ name, phone, email });
+    await sendBookingEmails(data);
 
     res.status(201).json({ booking: data });
   } catch (error) {
