@@ -167,6 +167,16 @@
 <body>
   <h1>KTJ Hair Admin</h1>
 
+  <div class="section" id="adminLoginSection">
+    <h2>Admin Login</h2>
+    <form id="adminLoginForm" style="max-width: 420px; margin: 0 auto;">
+      <input type="password" name="password" placeholder="Admin Password" required />
+      <button type="submit">Log In</button>
+      <div id="adminLoginStatus" class="empty"></div>
+    </form>
+  </div>
+
+  <div id="adminApp" style="display:none;">
   <div class="section">
     <h2>Booking Calendar</h2>
     <div class="calendar-nav">
@@ -248,9 +258,15 @@
   <div id="imageModal" class="image-modal" onclick="closeImageModal()">
     <img id="imageModalPreview" src="" alt="Preview" onclick="event.stopPropagation()" />
   </div>
+  </div>
 
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
+
+    function setAdminVisibility(isAuthenticated) {
+      document.getElementById('adminLoginSection').style.display = isAuthenticated ? 'none' : 'block';
+      document.getElementById('adminApp').style.display = isAuthenticated ? 'block' : 'none';
+    }
     const SERVICE_DURATIONS = {
       'haircut': 120,
       'full-highlight': 240,
@@ -500,10 +516,15 @@
 
       try {
         const [bookingsRes, messagesRes, notesRes] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/bookings`),
-          fetch(`${API_BASE}/api/admin/contact-messages`),
-          fetch(`${API_BASE}/api/admin/client-notes`)
+          fetch(`${API_BASE}/api/admin/bookings`, { credentials: 'include' }),
+          fetch(`${API_BASE}/api/admin/contact-messages`, { credentials: 'include' }),
+          fetch(`${API_BASE}/api/admin/client-notes`, { credentials: 'include' })
         ]);
+
+        if ([bookingsRes, messagesRes, notesRes].some((response) => response.status === 401)) {
+          setAdminVisibility(false);
+          return;
+        }
 
         const bookingsData = await bookingsRes.json();
         const messagesData = await messagesRes.json();
@@ -573,7 +594,7 @@
       if (!date) return;
 
       const formattedDate = formatAdminDateForApi(date);
-      const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(formattedDate)}`);
+      const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(formattedDate)}`, { credentials: 'include' });
       const data = await response.json();
       const service = document.getElementById('manualServiceSelect').value;
       const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
@@ -659,6 +680,7 @@
 
       const response = await fetch(`${API_BASE}/api/admin/bookings/${bookingId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -695,6 +717,7 @@
 
       let response = await fetch(`${API_BASE}/api/admin/bookings`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -707,6 +730,7 @@
             payload.allowConflict = true;
             response = await fetch(`${API_BASE}/api/admin/bookings`, {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
@@ -736,6 +760,7 @@
 
       const response = await fetch(`${API_BASE}/api/admin/client-notes`, {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
@@ -749,8 +774,41 @@
       }
     });
 
-    populateAdminTimeOptions();
-    loadAdminData();
+    document.getElementById('adminLoginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = event.target.elements.password.value;
+      const response = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      document.getElementById('adminLoginStatus').innerHTML = response.ok
+        ? '<div class="success">Logged in.</div>'
+        : '<div class="empty">Invalid password.</div>';
+
+      if (response.ok) {
+        event.target.reset();
+        setAdminVisibility(true);
+        populateAdminTimeOptions();
+        loadAdminData();
+      }
+    });
+
+    async function initializeAdmin() {
+      const response = await fetch(`${API_BASE}/api/admin/session`, {
+        credentials: 'include',
+      });
+      const result = await response.json();
+      setAdminVisibility(Boolean(result.authenticated));
+      if (result.authenticated) {
+        populateAdminTimeOptions();
+        loadAdminData();
+      }
+    }
+
+    initializeAdmin();
   </script>
 </body>
 </html>

@@ -1,7 +1,9 @@
 require('dotenv').config();
 
 const express = require('express');
+const crypto = require('crypto');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
@@ -10,7 +12,8 @@ const twilio = require('twilio');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,12 +26,66 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
+const ADMIN_COOKIE_NAME = 'ktj_admin_session';
+
+function signAdminSession(value) {
+  return crypto
+    .createHmac('sha256', process.env.ADMIN_SESSION_SECRET || 'dev-admin-secret')
+    .update(value)
+    .digest('hex');
+}
+
+function getAdminSessionValue() {
+  const marker = 'ktj-admin-authenticated';
+  return `${marker}.${signAdminSession(marker)}`;
+}
+
+function isAuthorizedAdmin(req) {
+  return req.cookies?.[ADMIN_COOKIE_NAME] === getAdminSessionValue();
+}
+
+function requireAdmin(req, res, next) {
+  if (!isAuthorizedAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/admin/bookings', async (_req, res) => {
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+
+  if (!process.env.ADMIN_PASSWORD || password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password.' });
+  }
+
+  res.cookie(ADMIN_COOKIE_NAME, getAdminSessionValue(), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 12,
+  });
+
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  res.clearCookie(ADMIN_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/session', (req, res) => {
+  res.json({ authenticated: isAuthorizedAdmin(req) });
+});
+
+app.get('/api/admin/bookings', requireAdmin, async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from('bookings')
@@ -50,7 +107,7 @@ app.get('/api/admin/bookings', async (_req, res) => {
   }
 });
 
-app.get('/api/admin/contact-messages', async (_req, res) => {
+app.get('/api/admin/contact-messages', requireAdmin, async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from('contact_messages')
@@ -66,7 +123,7 @@ app.get('/api/admin/contact-messages', async (_req, res) => {
   }
 });
 
-app.get('/api/admin/client-notes', async (_req, res) => {
+app.get('/api/admin/client-notes', requireAdmin, async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from('client_notes')
@@ -487,7 +544,7 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
-app.post('/api/admin/bookings', async (req, res) => {
+app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
     const {
       name,
@@ -564,7 +621,7 @@ app.post('/api/admin/bookings', async (req, res) => {
   }
 });
 
-app.delete('/api/admin/bookings/:id', async (req, res) => {
+app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -586,7 +643,7 @@ app.delete('/api/admin/bookings/:id', async (req, res) => {
   }
 });
 
-app.post('/api/admin/client-notes', upload.single('hairPhoto'), async (req, res) => {
+app.post('/api/admin/client-notes', requireAdmin, upload.single('hairPhoto'), async (req, res) => {
   try {
     const {
       clientName,
