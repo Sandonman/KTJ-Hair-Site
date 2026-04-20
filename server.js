@@ -55,6 +55,17 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+function getAdminCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+  return {
+    httpOnly: true,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: Boolean(isProduction),
+    path: '/',
+    maxAge: 1000 * 60 * 60 * 12,
+  };
+}
+
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
 
@@ -62,21 +73,15 @@ app.post('/api/admin/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid password.' });
   }
 
-  res.cookie(ADMIN_COOKIE_NAME, getAdminSessionValue(), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 12,
-  });
+  res.cookie(ADMIN_COOKIE_NAME, getAdminSessionValue(), getAdminCookieOptions());
 
   res.json({ ok: true });
 });
 
 app.post('/api/admin/logout', (req, res) => {
   res.clearCookie(ADMIN_COOKIE_NAME, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    ...getAdminCookieOptions(),
+    maxAge: undefined,
   });
   res.json({ ok: true });
 });
