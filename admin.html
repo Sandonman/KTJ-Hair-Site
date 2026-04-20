@@ -284,9 +284,10 @@
 
     function renderPhotoThumb(url, label) {
       if (!url) return '';
+      const safeUrl = String(url).replace(/'/g, '&#39;');
       return `
         <div>
-          <img src="${url}" alt="${label}" class="photo-thumb" onclick="openImageModal('${url}')" />
+          <img src="${safeUrl}" alt="${label}" class="photo-thumb" onclick="openImageModal('${safeUrl}')" />
           <div class="photo-label">${label}</div>
         </div>
       `;
@@ -376,11 +377,12 @@
       }
 
       matchingBookings.forEach((booking, index) => {
+        const bookingLabel = `${booking.appointment_date} ${booking.appointment_time}`;
         if (booking.current_hair_image_signed_url) {
-          photoItems.push(renderPhotoThumb(booking.current_hair_image_signed_url, `Current Hair ${index + 1}`));
+          photoItems.push(renderPhotoThumb(booking.current_hair_image_signed_url, `Current Hair, ${bookingLabel}`));
         }
         if (booking.inspiration_image_signed_url) {
-          photoItems.push(renderPhotoThumb(booking.inspiration_image_signed_url, `Inspiration ${index + 1}`));
+          photoItems.push(renderPhotoThumb(booking.inspiration_image_signed_url, `Inspiration, ${bookingLabel}`));
         }
       });
 
@@ -396,7 +398,7 @@
           <strong>Style Notes:</strong> ${note.style_notes || 'None'}<br><br>
           <strong>General Notes:</strong> ${note.general_notes || 'None'}
           <div class="photo-grid">
-            ${photoItems.join('') || '<div class="empty">No photos yet.</div>'}
+            ${photoItems.length ? photoItems.join('') : '<div class="empty">No photos yet.</div>'}
           </div>
         </div>
       `;
