@@ -514,13 +514,9 @@
           return '';
         }
 
-        let label = option.label;
-        let style = '';
         const warningFlags = [];
 
         if (conflict) {
-          label = `${label} ⚠ close to another booking`;
-          style = ' style="background-color:#fff4d6;color:#8a5a00;"';
           warningFlags.push('data-warning-buffer="true"');
         }
 
@@ -528,7 +524,7 @@
           warningFlags.push('data-warning-late="true"');
         }
 
-        return `<option value="${option.value}"${style} ${warningFlags.join(' ')}>${label}</option>`;
+        return `<option value="${option.value}" ${warningFlags.join(' ')}>${option.label}</option>`;
       }).join('');
 
       select.innerHTML = rebuiltOptions;
@@ -539,8 +535,18 @@
     document.querySelector('#manualBookingForm [name="addHaircut"]').addEventListener('change', refreshAdminAvailability);
     document.getElementById('manualAppointmentTime').addEventListener('change', (event) => {
       const selected = event.target.selectedOptions[0];
-      if (selected?.dataset.warningLate === 'true') {
-        window.alert('This appointment would end after 7:00 PM. Katie can still book it, but please confirm that timing works.');
+      if (!selected) return;
+
+      const warnings = [];
+      if (selected.dataset.warningBuffer === 'true') {
+        warnings.push('This appointment starts within an hour of another booking.');
+      }
+      if (selected.dataset.warningLate === 'true') {
+        warnings.push('This appointment would end after 7:00 PM.');
+      }
+
+      if (warnings.length) {
+        window.alert(`${warnings.join(' ')} Katie can still book it, but please confirm that timing works.`);
       }
     });
     document.getElementById('prevMonthBtn').addEventListener('click', () => {
