@@ -5,6 +5,7 @@ const cors = require('cors');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
+const twilio = require('twilio');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -19,6 +20,9 @@ const supabase = createClient(
 );
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
@@ -145,6 +149,27 @@ async function sendEmail({ to, subject, html }) {
   });
 }
 
+function normalizePhoneNumber(phone) {
+  if (!phone) return null;
+  const raw = String(phone).trim();
+  if (raw.startsWith('+')) return raw;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return null;
+}
+
+async function sendSms({ to, body }) {
+  const normalizedTo = normalizePhoneNumber(to);
+  if (!twilioClient || !process.env.TWILIO_FROM_NUMBER || !normalizedTo || !body) return;
+
+  await twilioClient.messages.create({
+    from: process.env.TWILIO_FROM_NUMBER,
+    to: normalizedTo,
+    body,
+  });
+}
+
 async function sendBookingEmails(booking) {
   const clientHtml = `
     <h2>KTJ Hair Booking Request Received</h2>
@@ -188,6 +213,22 @@ async function sendBookingEmails(booking) {
   ]);
 }
 
+async function sendBookingSms(booking) {
+  const clientText = `KTJ Hair: Hi ${booking.name}, your booking request for ${booking.service} on ${booking.appointment_date} at ${booking.appointment_time} has been received.`;
+  const adminText = `New KTJ Hair booking: ${booking.name}, ${booking.service}, ${booking.appointment_date} at ${booking.appointment_time}. Phone: ${booking.phone}.`;
+
+  await Promise.allSettled([
+    sendSms({
+      to: booking.phone,
+      body: clientText,
+    }),
+    sendSms({
+      to: process.env.KATIE_NOTIFICATION_PHONE,
+      body: adminText,
+    }),
+  ]);
+}
+
 async function sendContactEmails(message) {
   const clientHtml = `
     <h2>KTJ Hair Message Received</h2>
@@ -216,6 +257,22 @@ async function sendContactEmails(message) {
       to: process.env.KATIE_NOTIFICATION_EMAIL,
       subject: 'New KTJ Hair contact message',
       html: adminHtml,
+    }),
+  ]);
+}
+
+async function sendContactSms(message) {
+  const clientText = `KTJ Hair: Hi ${message.name}, your message has been received. Katie will reply soon.`;
+  const adminText = `New KTJ Hair contact message from ${message.name}. Phone: ${message.phone || 'not provided'}. Message: ${message.message}`;
+
+  await Promise.allSettled([
+    sendSms({
+      to: message.phone,
+      body: clientText,
+    }),
+    sendSms({
+      to: process.env.KATIE_NOTIFICATION_PHONE,
+      body: adminText,
     }),
   ]);
 }
@@ -384,7 +441,10 @@ app.post(
       if (error) throw error;
 
       await ensureClientRecord({ name, phone, email });
-      await sendBookingEmails(data);
+      await Promise.allSettled([
+        sendBookingEmails(data),
+        sendBookingSms(data),
+      ]);
 
       res.status(201).json({ booking: data });
     } catch (error) {
@@ -415,7 +475,10 @@ app.post('/api/contact', async (req, res) => {
 
     if (error) throw error;
 
-    await sendContactEmails(data);
+    await Promise.allSettled([
+      sendContactEmails(data),
+      sendContactSms(data),
+    ]);
 
     res.status(201).json({ message: data });
   } catch (error) {
@@ -489,7 +552,10 @@ app.post('/api/admin/bookings', async (req, res) => {
     if (error) throw error;
 
     await ensureClientRecord({ name, phone, email });
-    await sendBookingEmails(data);
+    await Promise.allSettled([
+      sendBookingEmails(data),
+      sendBookingSms(data),
+    ]);
 
     res.status(201).json({ booking: data });
   } catch (error) {
