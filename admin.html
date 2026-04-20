@@ -328,6 +328,14 @@
       return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
 
+    function formatAdminDateForApi(value) {
+      if (!value) return value;
+      const [year, month, day] = value.split('-').map(Number);
+      if (!year || !month || !day) return normalizeDateLabel(value);
+      const parsed = new Date(year, month - 1, day);
+      return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
     function renderCalendar(bookings) {
       const calendarEl = document.getElementById('calendar');
       const year = currentCalendarDate.getFullYear();
@@ -472,7 +480,8 @@
 
       if (!date) return;
 
-      const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(date)}`);
+      const formattedDate = formatAdminDateForApi(date);
+      const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(formattedDate)}`);
       const data = await response.json();
       const service = document.getElementById('manualServiceSelect').value;
       const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
@@ -573,7 +582,7 @@
         email: form.elements.email.value,
         service: selectedService === 'other' ? form.elements.customService.value : selectedService,
         addHaircut: form.elements.addHaircut.checked,
-        appointmentDate: form.elements.appointmentDate.value,
+        appointmentDate: formatAdminDateForApi(form.elements.appointmentDate.value),
         appointmentTime: form.elements.appointmentTime.value,
         notes: form.elements.notes.value,
         status: form.elements.status.value,
