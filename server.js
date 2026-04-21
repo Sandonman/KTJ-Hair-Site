@@ -27,6 +27,7 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 const ADMIN_COOKIE_NAME = 'ktj_admin_session';
+const adminLoginAttempts = new Map();
 
 function signAdminSession(value) {
   return crypto
@@ -66,13 +67,44 @@ function getAdminCookieOptions() {
   };
 }
 
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || 'unknown';
+}
+
+function getLoginAttemptState(ip) {
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const maxAttempts = 5;
+  const existing = adminLoginAttempts.get(ip);
+
+  if (!existing || now > existing.expiresAt) {
+    const fresh = { count: 0, expiresAt: now + windowMs, maxAttempts };
+    adminLoginAttempts.set(ip, fresh);
+    return fresh;
+  }
+
+  return existing;
+}
+
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
+  const ip = getClientIp(req);
+  const attemptState = getLoginAttemptState(ip);
+
+  if (attemptState.count >= attemptState.maxAttempts) {
+    return res.status(429).json({ error: 'Too many login attempts. Please wait and try again.' });
+  }
 
   if (!process.env.ADMIN_PASSWORD || password !== process.env.ADMIN_PASSWORD) {
+    attemptState.count += 1;
     return res.status(401).json({ error: 'Invalid password.' });
   }
 
+  adminLoginAttempts.delete(ip);
   res.cookie(ADMIN_COOKIE_NAME, getAdminSessionValue(), getAdminCookieOptions());
 
   res.json({ ok: true });

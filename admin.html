@@ -799,9 +799,14 @@
         body: JSON.stringify({ password }),
       });
 
-      document.getElementById('adminLoginStatus').innerHTML = response.ok
-        ? '<div class="success">Logged in.</div>'
-        : '<div class="empty">Invalid password.</div>';
+      let loginMessage = '<div class="empty">Invalid password.</div>';
+      if (response.ok) {
+        loginMessage = '<div class="success">Logged in.</div>';
+      } else if (response.status === 429) {
+        loginMessage = '<div class="empty">Too many login attempts. Please wait and try again.</div>';
+      }
+
+      document.getElementById('adminLoginStatus').innerHTML = loginMessage;
 
       if (response.ok) {
         event.target.reset();
