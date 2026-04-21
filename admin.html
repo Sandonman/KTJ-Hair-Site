@@ -165,9 +165,14 @@
   </style>
 </head>
 <body>
-  <h1>KTJ Hair Admin</h1>
+  <div id="adminLoadingSection" class="section">
+    <h2>Loading admin...</h2>
+    <div class="empty">Checking secure access.</div>
+  </div>
 
-  <div class="section" id="adminLoginSection">
+  <h1 id="adminTitle" style="display:none;">KTJ Hair Admin</h1>
+
+  <div class="section" id="adminLoginSection" style="display:none;">
     <h2>Admin Login</h2>
     <form id="adminLoginForm" style="max-width: 420px; margin: 0 auto;">
       <input type="password" name="password" placeholder="Admin Password" required />
@@ -263,9 +268,11 @@
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
 
-    function setAdminVisibility(isAuthenticated) {
-      document.getElementById('adminLoginSection').style.display = isAuthenticated ? 'none' : 'block';
-      document.getElementById('adminApp').style.display = isAuthenticated ? 'block' : 'none';
+    function setAdminVisibility(isAuthenticated, isLoading = false) {
+      document.getElementById('adminLoadingSection').style.display = isLoading ? 'block' : 'none';
+      document.getElementById('adminTitle').style.display = isLoading ? 'none' : 'block';
+      document.getElementById('adminLoginSection').style.display = (!isAuthenticated && !isLoading) ? 'block' : 'none';
+      document.getElementById('adminApp').style.display = (isAuthenticated && !isLoading) ? 'block' : 'none';
     }
     const SERVICE_DURATIONS = {
       'haircut': 120,
@@ -790,18 +797,19 @@
 
       if (response.ok) {
         event.target.reset();
-        setAdminVisibility(true);
+        setAdminVisibility(true, false);
         populateAdminTimeOptions();
         loadAdminData();
       }
     });
 
     async function initializeAdmin() {
+      setAdminVisibility(false, true);
       const response = await fetch(`${API_BASE}/api/admin/session`, {
         credentials: 'include',
       });
       const result = await response.json();
-      setAdminVisibility(Boolean(result.authenticated));
+      setAdminVisibility(Boolean(result.authenticated), false);
       if (result.authenticated) {
         populateAdminTimeOptions();
         loadAdminData();
