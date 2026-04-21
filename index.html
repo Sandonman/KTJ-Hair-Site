@@ -320,8 +320,6 @@
             const data = await response.json();
             const requestedDuration = getRequestedDuration();
 
-            const debugMessages = [];
-
             BASE_TIME_OPTIONS.forEach(option => {
                 const optionMinutes = minutesFromTime(option.value);
                 const optionEnd = optionMinutes + requestedDuration;
@@ -333,37 +331,8 @@
                     el.value = option.value;
                     el.textContent = option.label;
                     timeSelect.appendChild(el);
-                } else {
-                    const reasons = [];
-                    if (conflictingBooking) {
-                        const durationMinutes = getBookingDuration(conflictingBooking);
-                        reasons.push(`conflicts with ${conflictingBooking.service} at ${conflictingBooking.appointment_time} (${durationMinutes} min total)`);
-                    }
-                    if (endsTooLate) {
-                        reasons.push('would end after 7:00 PM');
-                    }
-                    debugMessages.push(`${option.label}: ${reasons.join(' and ')}`);
                 }
             });
-
-            const bookingSummaries = (data.bookings || []).map((booking) => {
-                const start = minutesFromTime(booking.appointment_time);
-                const duration = getBookingDuration(booking);
-                const end = start + duration;
-                const bufferEnd = end + 60;
-                return `${booking.service} at ${booking.appointment_time}, duration ${duration} min, ends ${formatMinutes(end)}, buffer ends ${formatMinutes(bufferEnd)}`;
-            });
-
-            const debugEl = document.getElementById('availabilityDebug');
-            if (debugEl) {
-                const bookingSummaryHtml = bookingSummaries.length
-                    ? `<strong>Bookings found:</strong><br>${bookingSummaries.join('<br>')}<br><br>`
-                    : '<strong>Bookings found:</strong><br>None<br><br>';
-                const filteredHtml = debugMessages.length
-                    ? `<strong>Filtered times:</strong><br>${debugMessages.join('<br>')}`
-                    : '<strong>Filtered times:</strong><br>None';
-                debugEl.innerHTML = `${bookingSummaryHtml}${filteredHtml}`;
-            }
         }
 
         const SERVICE_DURATIONS = {
@@ -645,7 +614,6 @@
                 <option value="04:30">04:30 PM</option>
                 <option value="05:00">05:00 PM</option>
             </select>
-            <div id="availabilityDebug" class="availability-debug">Select a date and service to see bookings found, computed durations, and filtered times.</div>
             <textarea name="notes" placeholder="Any notes about your service"></textarea>
             <div class="upload-note">
                 Photo uploads are optional, but recommended for new clients so Katie can better prepare for your appointment.
