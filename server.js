@@ -12,7 +12,24 @@ const twilio = require('twilio');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = new Set([
+  'https://ktjhair.com',
+  'https://www.ktjhair.com',
+  'https://sandonman.github.io',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  undefined,
+]);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -119,7 +136,11 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 app.get('/api/admin/session', (req, res) => {
-  res.json({ authenticated: isAuthorizedAdmin(req) });
+  res.json({
+    authenticated: isAuthorizedAdmin(req),
+    hasCookie: Boolean(req.cookies?.[ADMIN_COOKIE_NAME]),
+    origin: req.headers.origin || null,
+  });
 });
 
 app.get('/api/admin/bookings', requireAdmin, async (_req, res) => {
