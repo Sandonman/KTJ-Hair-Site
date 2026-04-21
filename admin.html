@@ -548,6 +548,12 @@
         bookings = bookingsData.bookings || [];
         renderCalendar(bookings);
 
+        const selectedDayEl = document.getElementById('selectedDayBookings');
+        document.getElementById('selectedDayHeading').textContent = bookings.length
+          ? 'Select a booked day'
+          : 'No bookings yet';
+        renderEmpty(selectedDayEl, bookings.length ? 'No day selected yet.' : 'No bookings yet. New bookings will appear here.');
+
         if (!messagesData.messages || messagesData.messages.length === 0) {
           renderEmpty(messagesEl, 'No contact messages yet.');
         } else {
@@ -555,7 +561,13 @@
         }
 
         clientNotes = notesData.notes || [];
-        renderClientNotesList();
+        const notesSearch = document.getElementById('clientNotesSearch');
+        notesSearch.value = '';
+        if (!clientNotes.length) {
+          renderEmpty(notesEl, 'No client notes yet. Saved notes will appear here.');
+        } else {
+          renderClientNotesList();
+        }
       } catch (error) {
         document.getElementById('calendar').innerHTML = '<div class="empty">Failed to load calendar.</div>';
         messagesEl.innerHTML = '<div class="empty">Failed to load messages.</div>';
