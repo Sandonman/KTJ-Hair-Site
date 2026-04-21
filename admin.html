@@ -122,6 +122,11 @@
       background: #b42318;
       margin-top: 12px;
     }
+    .secondary-button {
+      background: #6b7280;
+      width: auto;
+      padding: 10px 16px;
+    }
     .photo-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -182,6 +187,9 @@
   </div>
 
   <div id="adminApp" style="display:none;">
+  <div class="section" style="display:flex; justify-content:flex-end; align-items:center; gap:12px;">
+    <button type="button" id="adminLogoutButton" class="secondary-button">Log Out</button>
+  </div>
   <div class="section">
     <h2>Booking Calendar</h2>
     <div class="calendar-nav">
@@ -801,6 +809,15 @@
         populateAdminTimeOptions();
         loadAdminData();
       }
+    });
+
+    document.getElementById('adminLogoutButton').addEventListener('click', async () => {
+      await fetch(`${API_BASE}/api/admin/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      document.getElementById('adminLoginStatus').innerHTML = '';
+      setAdminVisibility(false, false);
     });
 
     async function initializeAdmin() {
