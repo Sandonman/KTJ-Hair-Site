@@ -130,6 +130,21 @@
             border: 1px solid #1F2933;
             border-radius: 5px;
         }
+        .checkbox-stack {
+            width: 100%;
+            margin: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .checkbox-stack label {
+            margin: 0;
+        }
+        .checkbox-stack input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
         .upload-note {
             text-align: center;
             background-color: #fff8e7;
@@ -679,10 +694,12 @@
             <input type="email" name="contactEmail" placeholder="Your Email" required>
             <input type="tel" name="contactPhone" placeholder="Your Phone Number" required>
             <textarea name="contactMessage" placeholder="Your Message" required></textarea>
-            <label>
-                <input type="checkbox" name="contactSmsConsent" required>
-                I agree to receive appointment-related text messages from KTJ Hair, including replies to my inquiry, scheduling updates, and reminders. Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help.
-            </label>
+            <div class="checkbox-stack">
+                <label>
+                    <input type="checkbox" name="contactSmsConsent" required>
+                </label>
+                <div>I agree to receive appointment-related text messages from KTJ Hair, including replies to my inquiry, scheduling updates, and reminders. Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help.</div>
+            </div>
             <button type="submit">Send Message</button>
         </form>
     </section>
