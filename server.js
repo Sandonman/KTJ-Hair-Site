@@ -44,6 +44,7 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 const ADMIN_COOKIE_NAME = 'ktj_admin_session';
+const ADMIN_HEADER_NAME = 'x-admin-session';
 const adminLoginAttempts = new Map();
 
 function signAdminSession(value) {
@@ -59,7 +60,8 @@ function getAdminSessionValue() {
 }
 
 function isAuthorizedAdmin(req) {
-  return req.cookies?.[ADMIN_COOKIE_NAME] === getAdminSessionValue();
+  const expected = getAdminSessionValue();
+  return req.cookies?.[ADMIN_COOKIE_NAME] === expected || req.headers[ADMIN_HEADER_NAME] === expected;
 }
 
 function requireAdmin(req, res, next) {
@@ -121,10 +123,11 @@ app.post('/api/admin/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid password.' });
   }
 
+  const sessionValue = getAdminSessionValue();
   adminLoginAttempts.delete(ip);
-  res.cookie(ADMIN_COOKIE_NAME, getAdminSessionValue(), getAdminCookieOptions());
+  res.cookie(ADMIN_COOKIE_NAME, sessionValue, getAdminCookieOptions());
 
-  res.json({ ok: true });
+  res.json({ ok: true, sessionToken: sessionValue });
 });
 
 app.post('/api/admin/logout', (req, res) => {
@@ -139,6 +142,7 @@ app.get('/api/admin/session', (req, res) => {
   res.json({
     authenticated: isAuthorizedAdmin(req),
     hasCookie: Boolean(req.cookies?.[ADMIN_COOKIE_NAME]),
+    hasHeader: Boolean(req.headers[ADMIN_HEADER_NAME]),
     origin: req.headers.origin || null,
   });
 });

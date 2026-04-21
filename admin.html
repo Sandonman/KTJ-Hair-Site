@@ -275,6 +275,12 @@
 
   <script>
     const API_BASE = 'https://ktj-hair-site.onrender.com';
+    const ADMIN_SESSION_STORAGE_KEY = 'ktj_admin_session_token';
+
+    function getAdminSessionHeaders() {
+      const token = window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+      return token ? { 'x-admin-session': token } : {};
+    }
 
     function setAdminVisibility(isAuthenticated, isLoading = false) {
       document.getElementById('adminLoadingSection').style.display = isLoading ? 'block' : 'none';
@@ -531,9 +537,9 @@
 
       try {
         const [bookingsRes, messagesRes, notesRes] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/bookings`, { credentials: 'include' }),
-          fetch(`${API_BASE}/api/admin/contact-messages`, { credentials: 'include' }),
-          fetch(`${API_BASE}/api/admin/client-notes`, { credentials: 'include' })
+          fetch(`${API_BASE}/api/admin/bookings`, { credentials: 'include', headers: getAdminSessionHeaders() }),
+          fetch(`${API_BASE}/api/admin/contact-messages`, { credentials: 'include', headers: getAdminSessionHeaders() }),
+          fetch(`${API_BASE}/api/admin/client-notes`, { credentials: 'include', headers: getAdminSessionHeaders() })
         ]);
 
         if ([bookingsRes, messagesRes, notesRes].some((response) => response.status === 401)) {
@@ -715,6 +721,7 @@
       const response = await fetch(`${API_BASE}/api/admin/bookings/${bookingId}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: getAdminSessionHeaders(),
       });
 
       if (response.ok) {
@@ -752,7 +759,7 @@
       let response = await fetch(`${API_BASE}/api/admin/bookings`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminSessionHeaders() },
         body: JSON.stringify(payload),
       });
 
@@ -765,7 +772,7 @@
             response = await fetch(`${API_BASE}/api/admin/bookings`, {
               method: 'POST',
               credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...getAdminSessionHeaders() },
               body: JSON.stringify(payload),
             });
           }
@@ -795,6 +802,7 @@
       const response = await fetch(`${API_BASE}/api/admin/client-notes`, {
         method: 'POST',
         credentials: 'include',
+        headers: getAdminSessionHeaders(),
         body: formData,
       });
 
@@ -819,7 +827,12 @@
       });
 
       let loginMessage = '<div class="empty">Invalid password.</div>';
+      let loginResult = null;
       if (response.ok) {
+        loginResult = await response.json();
+        if (loginResult?.sessionToken) {
+          window.localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, loginResult.sessionToken);
+        }
         loginMessage = '<div class="success">Logged in.</div>';
       } else if (response.status === 429) {
         loginMessage = '<div class="empty">Too many login attempts. Please wait and try again.</div>';
@@ -840,7 +853,9 @@
       await fetch(`${API_BASE}/api/admin/logout`, {
         method: 'POST',
         credentials: 'include',
+        headers: getAdminSessionHeaders(),
       });
+      window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
       document.getElementById('adminLoginStatus').innerHTML = '';
       setAdminVisibility(false, false);
     });
@@ -849,6 +864,7 @@
       setAdminVisibility(false, true);
       const response = await fetch(`${API_BASE}/api/admin/session`, {
         credentials: 'include',
+        headers: getAdminSessionHeaders(),
       });
       const result = await response.json();
       if (result.authenticated) {
