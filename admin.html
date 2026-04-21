@@ -538,7 +538,11 @@
 
         if ([bookingsRes, messagesRes, notesRes].some((response) => response.status === 401)) {
           setAdminVisibility(false);
-          return;
+          return false;
+        }
+
+        if ([bookingsRes, messagesRes, notesRes].some((response) => !response.ok)) {
+          throw new Error('Failed to load admin data.');
         }
 
         const bookingsData = await bookingsRes.json();
@@ -568,10 +572,13 @@
         } else {
           renderClientNotesList();
         }
+
+        return true;
       } catch (error) {
         document.getElementById('calendar').innerHTML = '<div class="empty">Failed to load calendar.</div>';
         messagesEl.innerHTML = '<div class="empty">Failed to load messages.</div>';
         notesEl.innerHTML = '<div class="empty">Failed to load client notes.</div>';
+        return false;
       }
     }
 
@@ -822,9 +829,10 @@
 
       if (response.ok) {
         event.target.reset();
-        setAdminVisibility(true, false);
+        setAdminVisibility(false, true);
         populateAdminTimeOptions();
-        loadAdminData();
+        const loaded = await loadAdminData();
+        setAdminVisibility(Boolean(loaded), false);
       }
     });
 
@@ -843,11 +851,13 @@
         credentials: 'include',
       });
       const result = await response.json();
-      setAdminVisibility(Boolean(result.authenticated), false);
       if (result.authenticated) {
         populateAdminTimeOptions();
-        loadAdminData();
+        const loaded = await loadAdminData();
+        setAdminVisibility(Boolean(loaded), false);
+        return;
       }
+      setAdminVisibility(false, false);
     }
 
     initializeAdmin();
