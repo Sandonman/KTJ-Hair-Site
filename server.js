@@ -464,34 +464,48 @@ function hasConflict(existingBookings, appointmentTime, requestedDuration, buffe
   });
 }
 
+async function findClientRecord({ name, phone }) {
+  if (phone) {
+    const { data: existingByPhone, error: phoneError } = await supabase
+      .from('client_notes')
+      .select('id, client_name, client_phone, client_email')
+      .eq('client_phone', phone)
+      .limit(1);
+
+    if (phoneError) throw phoneError;
+    if (existingByPhone && existingByPhone.length > 0) return existingByPhone[0];
+  }
+
+  if (name) {
+    const { data: existingByName, error: nameError } = await supabase
+      .from('client_notes')
+      .select('id, client_name, client_phone, client_email')
+      .ilike('client_name', name)
+      .limit(1);
+
+    if (nameError) throw nameError;
+    if (existingByName && existingByName.length > 0) return existingByName[0];
+  }
+
+  return null;
+}
+
 async function ensureClientRecord({ name, phone, email }) {
-  const { data: existingByPhone, error: phoneError } = await supabase
-    .from('client_notes')
-    .select('id')
-    .eq('client_phone', phone)
-    .limit(1);
+  const existingClient = await findClientRecord({ name, phone });
+  if (existingClient) return existingClient;
 
-  if (phoneError) throw phoneError;
-  if (existingByPhone && existingByPhone.length > 0) return;
-
-  const { data: existingByName, error: nameError } = await supabase
-    .from('client_notes')
-    .select('id')
-    .ilike('client_name', name)
-    .limit(1);
-
-  if (nameError) throw nameError;
-  if (existingByName && existingByName.length > 0) return;
-
-  const { error: insertError } = await supabase
+  const { data, error: insertError } = await supabase
     .from('client_notes')
     .insert({
       client_name: name,
       client_phone: phone || null,
       client_email: email || null,
-    });
+    })
+    .select('id, client_name, client_phone, client_email')
+    .single();
 
   if (insertError) throw insertError;
+  return data;
 }
 
 app.post(
@@ -606,9 +620,32 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
+app.get('/api/admin/clients', requireAdmin, async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    if (!search) {
+      return res.json({ clients: [] });
+    }
+
+    const { data, error } = await supabase
+      .from('client_notes')
+      .select('id, client_name, client_phone, client_email')
+      .or(`client_name.ilike.%${search}%,client_phone.ilike.%${search}%`)
+      .order('client_name', { ascending: true })
+      .limit(10);
+
+    if (error) throw error;
+    res.json({ clients: data || [] });
+  } catch (error) {
+    console.error('Admin client search error:', error);
+    res.status(500).json({ error: 'Failed to search clients.' });
+  }
+});
+
 app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
     const {
+      clientMode,
       name,
       phone,
       email,
@@ -618,9 +655,24 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
       appointmentTime,
       notes,
       status,
+      skipConfirmation,
     } = req.body;
 
-    if (!name || !phone || !email || !service || !appointmentDate || !appointmentTime) {
+    let bookingName = name;
+    let bookingPhone = phone;
+    let bookingEmail = email;
+
+    if (clientMode === 'returning') {
+      const selectedClient = await findClientRecord({ name, phone });
+      if (!selectedClient) {
+        return res.status(400).json({ error: 'Returning client not found.' });
+      }
+      bookingName = selectedClient.client_name;
+      bookingPhone = selectedClient.client_phone;
+      bookingEmail = selectedClient.client_email;
+    }
+
+    if (!bookingName || !service || !appointmentDate || !appointmentTime) {
       return res.status(400).json({ error: 'Missing required booking fields.' });
     }
 
@@ -655,9 +707,9 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
     const { data, error } = await supabase
       .from('bookings')
       .insert({
-        name,
-        phone,
-        email,
+        name: bookingName,
+        phone: bookingPhone || null,
+        email: bookingEmail || null,
         service,
         add_haircut: addHaircut === 'true' || addHaircut === true,
         appointment_date: appointmentDate,
@@ -670,11 +722,14 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    await ensureClientRecord({ name, phone, email });
-    await Promise.allSettled([
-      sendBookingEmails(data),
-      sendBookingSms(data),
-    ]);
+    await ensureClientRecord({ name: bookingName, phone: bookingPhone, email: bookingEmail });
+
+    if (!(skipConfirmation === 'true' || skipConfirmation === true)) {
+      await Promise.allSettled([
+        sendBookingEmails(data),
+        sendBookingSms(data),
+      ]);
+    }
 
     res.status(201).json({ booking: data });
   } catch (error) {

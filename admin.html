@@ -133,6 +133,29 @@
       gap: 12px;
       margin-top: 12px;
     }
+    .client-mode-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .client-search-results {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fafafa;
+      display: none;
+    }
+    .client-search-results button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: #1f2933;
+      border: 1px solid #eee;
+      margin-bottom: 6px;
+    }
+    .client-search-results button:last-child {
+      margin-bottom: 0;
+    }
     .photo-thumb {
       width: 100%;
       height: 140px;
@@ -206,9 +229,23 @@
     <div>
       <h2>Add Booking for Katie</h2>
       <form id="manualBookingForm">
-        <input name="name" placeholder="Client Name" required />
-        <input name="phone" placeholder="Client Phone" required />
-        <input name="email" type="email" placeholder="Client Email" required />
+        <div class="client-mode-row">
+          <label><input type="radio" name="clientMode" value="new" checked /> New Client</label>
+          <label><input type="radio" name="clientMode" value="returning" /> Returning Client</label>
+        </div>
+        <div id="newClientFields">
+          <input name="name" placeholder="Client Name" required />
+          <input name="phone" placeholder="Client Phone" required />
+          <input name="email" type="email" placeholder="Client Email" required />
+        </div>
+        <div id="returningClientFields" style="display:none;">
+          <input name="returningClientSearch" id="returningClientSearch" placeholder="Search client name or phone" />
+          <div id="returningClientResults" class="client-search-results"></div>
+          <input type="hidden" name="selectedClientName" id="selectedClientName" />
+          <input type="hidden" name="selectedClientPhone" id="selectedClientPhone" />
+          <input type="hidden" name="selectedClientEmail" id="selectedClientEmail" />
+          <div id="selectedClientDisplay" class="empty">No returning client selected.</div>
+        </div>
         <select name="service" id="manualServiceSelect" required>
           <option value="">Select Service</option>
           <option value="haircut">Haircut</option>
@@ -227,6 +264,7 @@
         <input name="appointmentDate" type="date" required />
         <select name="appointmentTime" id="manualAppointmentTime" required></select>
         <textarea name="notes" placeholder="Notes"></textarea>
+        <label><input type="checkbox" name="skipConfirmation" /> Add booking without sending confirmation email or text</label>
         <select name="status">
           <option value="new">New</option>
           <option value="confirmed">Confirmed</option>
@@ -330,16 +368,25 @@
       `;
     }
 
+    function formatTime12Hour(value) {
+      if (!value) return '';
+      const [hours, minutes] = String(value).split(':').map(Number);
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
+      const suffix = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = ((hours + 11) % 12) + 1;
+      return `${hour12}:${String(minutes).padStart(2, '0')} ${suffix}`;
+    }
+
     function bookingCard(booking) {
       return `
         <div class="card">
           <div class="meta">${new Date(booking.created_at).toLocaleString()}</div>
           <strong>${booking.name}</strong><br>
-          ${booking.email}<br>
-          ${booking.phone}<br><br>
+          ${booking.email || ''}<br>
+          ${booking.phone || ''}<br><br>
           <strong>Service:</strong> ${booking.service}<br>
           <strong>Date:</strong> ${booking.appointment_date}<br>
-          <strong>Time:</strong> ${booking.appointment_time}<br>
+          <strong>Time:</strong> ${formatTime12Hour(booking.appointment_time)}<br>
           <strong>Add Haircut:</strong> ${booking.add_haircut ? 'Yes' : 'No'}<br>
           <strong>Status:</strong> ${booking.status}<br><br>
           <strong>Notes:</strong> ${booking.notes || 'None'}
@@ -401,10 +448,10 @@
       const appointments = getClientAppointments(note);
       const matchingBookings = getMatchingBookingsForClient(note);
       const lastAppointment = appointments.last
-        ? `${appointments.last.appointment_date} at ${appointments.last.appointment_time}`
+        ? `${appointments.last.appointment_date} at ${formatTime12Hour(appointments.last.appointment_time)}`
         : 'None found';
       const upcomingAppointment = appointments.upcoming
-        ? `${appointments.upcoming.appointment_date} at ${appointments.upcoming.appointment_time}`
+        ? `${appointments.upcoming.appointment_date} at ${formatTime12Hour(appointments.upcoming.appointment_time)}`
         : 'None scheduled';
 
       const photoItems = [];
@@ -414,7 +461,7 @@
       }
 
       matchingBookings.forEach((booking, index) => {
-        const bookingLabel = `${booking.appointment_date} ${booking.appointment_time}`;
+        const bookingLabel = `${booking.appointment_date} ${formatTime12Hour(booking.appointment_time)}`;
         if (booking.current_hair_image_signed_url) {
           photoItems.push(renderPhotoThumb(booking.current_hair_image_signed_url, `Current Hair, ${bookingLabel}`));
         }
@@ -613,6 +660,61 @@
         .join('');
     }
 
+    function setClientMode(mode) {
+      const isReturning = mode === 'returning';
+      document.getElementById('newClientFields').style.display = isReturning ? 'none' : 'block';
+      document.getElementById('returningClientFields').style.display = isReturning ? 'block' : 'none';
+      document.querySelector('#manualBookingForm [name="name"]').required = !isReturning;
+      document.querySelector('#manualBookingForm [name="phone"]').required = !isReturning;
+      document.querySelector('#manualBookingForm [name="email"]').required = !isReturning;
+    }
+
+    async function searchReturningClients(searchTerm) {
+      const resultsEl = document.getElementById('returningClientResults');
+      if (!searchTerm.trim()) {
+        resultsEl.style.display = 'none';
+        resultsEl.innerHTML = '';
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/admin/clients?search=${encodeURIComponent(searchTerm)}`, {
+        credentials: 'include',
+        headers: getAdminSessionHeaders(),
+      });
+      const data = await response.json();
+      const clients = data.clients || [];
+
+      if (!clients.length) {
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = '<div class="empty">No matching clients found.</div>';
+        return;
+      }
+
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = clients.map((client) => {
+        const encoded = encodeURIComponent(JSON.stringify(client));
+        return `<button type="button" onclick="selectReturningClient('${encoded}')">${client.client_name}${client.client_phone ? `, ${client.client_phone}` : ''}</button>`;
+      }).join('');
+    }
+
+    window.selectReturningClient = function(encodedClient) {
+      const client = JSON.parse(decodeURIComponent(encodedClient));
+      document.getElementById('selectedClientName').value = client.client_name || '';
+      document.getElementById('selectedClientPhone').value = client.client_phone || '';
+      document.getElementById('selectedClientEmail').value = client.client_email || '';
+      document.getElementById('selectedClientDisplay').innerHTML = `<div class="success">Selected: ${client.client_name}${client.client_phone ? ` (${client.client_phone})` : ''}</div>`;
+      document.getElementById('returningClientResults').style.display = 'none';
+      document.getElementById('returningClientSearch').value = client.client_name || '';
+    };
+
+    document.querySelectorAll('#manualBookingForm [name="clientMode"]').forEach((radio) => {
+      radio.addEventListener('change', (event) => setClientMode(event.target.value));
+    });
+
+    document.getElementById('returningClientSearch').addEventListener('input', (event) => {
+      searchReturningClients(event.target.value);
+    });
+
     document.getElementById('manualServiceSelect').addEventListener('change', (event) => {
       const customInput = document.getElementById('customServiceInput');
       if (event.target.value === 'other') {
@@ -737,17 +839,25 @@
       const form = event.target;
       const selectedService = form.elements.service.value;
       const selectedOption = form.elements.appointmentTime.selectedOptions[0];
+      const clientMode = form.elements.clientMode.value;
       const payload = {
-        name: form.elements.name.value,
-        phone: form.elements.phone.value,
-        email: form.elements.email.value,
+        clientMode,
+        name: clientMode === 'returning' ? form.elements.selectedClientName.value : form.elements.name.value,
+        phone: clientMode === 'returning' ? form.elements.selectedClientPhone.value : form.elements.phone.value,
+        email: clientMode === 'returning' ? form.elements.selectedClientEmail.value : form.elements.email.value,
         service: selectedService === 'other' ? form.elements.customService.value : selectedService,
         addHaircut: form.elements.addHaircut.checked,
         appointmentDate: formatAdminDateForApi(form.elements.appointmentDate.value),
         appointmentTime: form.elements.appointmentTime.value,
         notes: form.elements.notes.value,
         status: form.elements.status.value,
+        skipConfirmation: form.elements.skipConfirmation.checked,
       };
+
+      if (clientMode === 'returning' && !payload.name) {
+        document.getElementById('manualBookingStatus').innerHTML = '<div class="empty">Please select a returning client first.</div>';
+        return;
+      }
 
       if (selectedOption?.dataset.warningLate === 'true') {
         const confirmedLate = window.confirm('This appointment would end after 7:00 PM. Do you want to continue?');
@@ -785,6 +895,13 @@
 
       if (response.ok) {
         form.reset();
+        document.getElementById('selectedClientName').value = '';
+        document.getElementById('selectedClientPhone').value = '';
+        document.getElementById('selectedClientEmail').value = '';
+        document.getElementById('selectedClientDisplay').innerHTML = 'No returning client selected.';
+        document.getElementById('returningClientResults').style.display = 'none';
+        setClientMode('new');
+        document.querySelector('#manualBookingForm [name="clientMode"][value="new"]').checked = true;
         populateAdminTimeOptions();
         loadAdminData();
       }
@@ -859,6 +976,8 @@
       document.getElementById('adminLoginStatus').innerHTML = '';
       setAdminVisibility(false, false);
     });
+
+    setClientMode('new');
 
     async function initializeAdmin() {
       setAdminVisibility(false, true);
