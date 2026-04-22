@@ -132,11 +132,8 @@
     }
     .schedule-grid {
       display: grid;
-      grid-template-columns: 76px 1fr;
-      gap: 10px;
-      max-height: 780px;
-      overflow-y: auto;
-      padding-right: 6px;
+      grid-template-columns: 70px 1fr;
+      gap: 8px;
     }
     .schedule-times {
       position: relative;
@@ -717,7 +714,8 @@
       });
       const dayStart = hasEarlyBooking ? 5 * 60 : 9 * 60;
       const dayEnd = hasLateBooking ? 21 * 60 : 19 * 60;
-      const pixelsPerMinute = 640 / (dayEnd - dayStart);
+      const timelineHeight = 520;
+      const pixelsPerMinute = timelineHeight / (dayEnd - dayStart);
 
       const timesHtml = Array.from({ length: ((dayEnd - dayStart) / 30) + 1 }, (_, index) => {
         const minutes = dayStart + (index * 30);
@@ -726,7 +724,7 @@
       }).join('');
 
       if (!daily.length) {
-        target.innerHTML = `<div class="schedule-grid"><div class="schedule-times">${timesHtml}</div><div class="schedule-track"><div class="empty">No bookings for that date.</div></div></div>`;
+        target.innerHTML = `<div class="schedule-grid"><div class="schedule-times">${timesHtml}</div><div class="schedule-track" style="height:${timelineHeight}px;"><div class="empty">No bookings for that date.</div></div></div>`;
         return;
       }
 
@@ -765,7 +763,7 @@
       target.innerHTML = `
         <div class="schedule-grid">
           <div class="schedule-times">${timesHtml}</div>
-          <div class="schedule-track">${blockHtml}</div>
+          <div class="schedule-track" style="height:${timelineHeight}px;">${blockHtml}</div>
         </div>
       `;
     }
