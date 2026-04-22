@@ -139,30 +139,48 @@
     }
     .schedule-grid {
       display: grid;
-      gap: 6px;
-    }
-    .schedule-block {
-      display: grid;
-      grid-template-columns: 88px 1fr;
+      grid-template-columns: 76px 1fr;
       gap: 10px;
-      align-items: stretch;
+      max-height: 780px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+    .schedule-times {
+      position: relative;
     }
     .schedule-time {
-      font-size: 13px;
+      position: absolute;
+      right: 0;
+      transform: translateY(-50%);
+      font-size: 12px;
       color: #666;
-      padding-top: 10px;
-      text-align: right;
+      white-space: nowrap;
+    }
+    .schedule-track {
+      position: relative;
+      height: 640px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #ffffff 0,
+        #ffffff 19px,
+        #ececec 19px,
+        #ececec 20px
+      );
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
     }
     .appointment-chip {
-      width: 100%;
+      position: absolute;
+      left: 8px;
+      right: 8px;
       border-radius: 10px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       color: #1f2933;
-      font-size: 13px;
+      font-size: 12px;
       border: 1px solid rgba(0,0,0,0.08);
       cursor: pointer;
       text-align: left;
-      min-height: 42px;
+      overflow: hidden;
     }
     .appointment-chip.buffer {
       background: #e5e7eb;
@@ -713,9 +731,18 @@
       const target = document.getElementById('selectedDayBookings');
       document.getElementById('selectedDayHeading').textContent = `Schedule for ${dateLabel}`;
       const daily = getDailyBookings(dateLabel).filter((booking) => (booking.status || '').toLowerCase() !== 'cancelled');
+      const dayStart = 5 * 60;
+      const dayEnd = 21 * 60;
+      const pixelsPerMinute = 640 / (dayEnd - dayStart);
+
+      const timesHtml = Array.from({ length: ((dayEnd - dayStart) / 30) + 1 }, (_, index) => {
+        const minutes = dayStart + (index * 30);
+        const top = (minutes - dayStart) * pixelsPerMinute;
+        return `<div class="schedule-time" style="top:${top}px;">${formatTime12Hour(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`)}</div>`;
+      }).join('');
 
       if (!daily.length) {
-        target.innerHTML = '<div class="empty">No bookings for that date.</div>';
+        target.innerHTML = `<div class="schedule-grid"><div class="schedule-times">${timesHtml}</div><div class="schedule-track"><div class="empty">No bookings for that date.</div></div></div>`;
         return;
       }
 
@@ -742,20 +769,21 @@
 
       blocks.sort((a, b) => a.startMinutes - b.startMinutes);
 
-      target.innerHTML = `<div class="schedule-grid">${blocks.map((block) => {
-        const labelTime = formatTime12Hour(`${String(Math.floor(block.startMinutes / 60)).padStart(2, '0')}:${String(block.startMinutes % 60).padStart(2, '0')}`);
-        const durationText = `${(block.endMinutes - block.startMinutes) / 60} hr`;
-        const chip = block.type === 'buffer'
-          ? `<div class="appointment-chip buffer">Buffer, ${durationText}</div>`
-          : `<button type="button" class="appointment-chip" style="background:${getServiceColor(block.booking.service)};" onclick="showAppointmentDetails('${block.booking.id}')"><strong>${block.booking.name}</strong>${block.booking.service}<br>${formatTime12Hour(block.booking.appointment_time)}</button>`;
+      const blockHtml = blocks.map((block) => {
+        const top = Math.max(0, (block.startMinutes - dayStart) * pixelsPerMinute);
+        const height = Math.max(18, (block.endMinutes - block.startMinutes) * pixelsPerMinute);
+        if (block.type === 'buffer') {
+          return `<div class="appointment-chip buffer" style="top:${top}px; height:${height}px;">Buffer</div>`;
+        }
+        return `<button type="button" class="appointment-chip" style="top:${top}px; height:${height}px; background:${getServiceColor(block.booking.service)};" onclick="showAppointmentDetails('${block.booking.id}')"><strong>${block.booking.name}</strong>${block.booking.service}<br>${formatTime12Hour(block.booking.appointment_time)}</button>`;
+      }).join('');
 
-        return `
-          <div class="schedule-block">
-            <div class="schedule-time">${labelTime}</div>
-            ${chip}
-          </div>
-        `;
-      }).join('')}</div>`;
+      target.innerHTML = `
+        <div class="schedule-grid">
+          <div class="schedule-times">${timesHtml}</div>
+          <div class="schedule-track">${blockHtml}</div>
+        </div>
+      `;
     }
 
     function renderCalendar(bookings) {
