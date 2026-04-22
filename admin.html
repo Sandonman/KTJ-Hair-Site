@@ -130,13 +130,6 @@
       background: #fcfcfc;
       min-height: 520px;
     }
-    .schedule-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 16px;
-      font-size: 13px;
-    }
     .schedule-grid {
       display: grid;
       grid-template-columns: 76px 1fr;
@@ -364,7 +357,6 @@
       </div>
       <div>
         <h3 id="selectedDayHeading">Select a day</h3>
-        <div class="schedule-legend" id="scheduleLegend"></div>
         <div id="selectedDayBookings" class="day-schedule"></div>
       </div>
     </div>
@@ -710,23 +702,6 @@
       return false;
     }
 
-    function renderScheduleLegend() {
-      const legendEl = document.getElementById('scheduleLegend');
-      const items = [
-        ['Haircut', SERVICE_COLORS.haircut],
-        ['Full Highlight', SERVICE_COLORS['full-highlight']],
-        ['Partial Highlight', SERVICE_COLORS['partial-highlight']],
-        ['Area Highlight', SERVICE_COLORS['area-highlight']],
-        ['All Over Color', SERVICE_COLORS['all-over-color']],
-        ['Root Touch Up', SERVICE_COLORS['root-touch-up']],
-        ['Partial Highlight/Grey Coverage', SERVICE_COLORS['partial-highlight-grey']],
-        ['Gloss', SERVICE_COLORS.gloss],
-        ['Gloss and Haircut', SERVICE_COLORS['gloss-haircut']],
-        ['Buffer', '#e5e7eb'],
-      ];
-      legendEl.innerHTML = items.map(([label, color]) => `<span><span class="key-swatch" style="background:${color};"></span>${label}</span>`).join('');
-    }
-
     function renderDaySchedule(dateLabel) {
       const target = document.getElementById('selectedDayBookings');
       document.getElementById('selectedDayHeading').textContent = `Schedule for ${dateLabel}`;
@@ -899,7 +874,6 @@
         const notesData = await notesRes.json();
 
         bookings = bookingsData.bookings || [];
-        renderScheduleLegend();
         renderCalendar(bookings);
 
         const selectedDayEl = document.getElementById('selectedDayBookings');
