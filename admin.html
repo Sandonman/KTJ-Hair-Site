@@ -731,8 +731,17 @@
       const target = document.getElementById('selectedDayBookings');
       document.getElementById('selectedDayHeading').textContent = `Schedule for ${dateLabel}`;
       const daily = getDailyBookings(dateLabel).filter((booking) => (booking.status || '').toLowerCase() !== 'cancelled');
-      const dayStart = 5 * 60;
-      const dayEnd = 21 * 60;
+      const hasEarlyBooking = daily.some((booking) => {
+        const startMinutes = Number(booking.appointment_time.split(':')[0]) * 60 + Number(booking.appointment_time.split(':')[1]);
+        return startMinutes < 9 * 60;
+      });
+      const hasLateBooking = daily.some((booking) => {
+        const startMinutes = Number(booking.appointment_time.split(':')[0]) * 60 + Number(booking.appointment_time.split(':')[1]);
+        const duration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
+        return (startMinutes + duration) > 19 * 60;
+      });
+      const dayStart = hasEarlyBooking ? 5 * 60 : 9 * 60;
+      const dayEnd = hasLateBooking ? 21 * 60 : 19 * 60;
       const pixelsPerMinute = 640 / (dayEnd - dayStart);
 
       const timesHtml = Array.from({ length: ((dayEnd - dayStart) / 30) + 1 }, (_, index) => {
