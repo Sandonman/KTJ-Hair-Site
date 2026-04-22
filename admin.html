@@ -875,14 +875,54 @@
       form.elements.bookingId.value = booking.id;
       form.elements.service.value = normalizeServiceKey(booking.service);
       form.elements.appointmentDate.value = new Date(booking.appointment_date).toISOString().slice(0, 10);
-      form.elements.appointmentTime.value = booking.appointment_time;
       form.elements.addHaircut.checked = Boolean(booking.add_haircut);
       form.elements.notes.value = booking.notes || '';
       form.elements.status.value = booking.status || 'confirmed';
-      populateAdminTimeOptions(document.getElementById('editAppointmentTime'));
+      refreshAvailability({
+        dateValue: form.elements.appointmentDate.value,
+        selectEl: document.getElementById('editAppointmentTime'),
+        serviceValue: form.elements.service.value,
+        addHaircutChecked: form.elements.addHaircut.checked,
+        excludeBookingId: booking.id,
+      }).then(() => {
+        form.elements.appointmentTime.value = booking.appointment_time;
+      });
       closeAppointmentDetails();
       document.getElementById('editAppointmentStatus').innerHTML = '';
       document.getElementById('editAppointmentModal').classList.add('active');
+    });
+
+    document.querySelector('#editAppointmentForm [name="appointmentDate"]').addEventListener('change', async () => {
+      const form = document.getElementById('editAppointmentForm');
+      await refreshAvailability({
+        dateValue: form.elements.appointmentDate.value,
+        selectEl: document.getElementById('editAppointmentTime'),
+        serviceValue: form.elements.service.value,
+        addHaircutChecked: form.elements.addHaircut.checked,
+        excludeBookingId: form.elements.bookingId.value,
+      });
+    });
+
+    document.getElementById('editAppointmentService').addEventListener('change', async () => {
+      const form = document.getElementById('editAppointmentForm');
+      await refreshAvailability({
+        dateValue: form.elements.appointmentDate.value,
+        selectEl: document.getElementById('editAppointmentTime'),
+        serviceValue: form.elements.service.value,
+        addHaircutChecked: form.elements.addHaircut.checked,
+        excludeBookingId: form.elements.bookingId.value,
+      });
+    });
+
+    document.querySelector('#editAppointmentForm [name="addHaircut"]').addEventListener('change', async () => {
+      const form = document.getElementById('editAppointmentForm');
+      await refreshAvailability({
+        dateValue: form.elements.appointmentDate.value,
+        selectEl: document.getElementById('editAppointmentTime'),
+        serviceValue: form.elements.service.value,
+        addHaircutChecked: form.elements.addHaircut.checked,
+        excludeBookingId: form.elements.bookingId.value,
+      });
     });
 
     document.getElementById('editAppointmentForm').addEventListener('submit', async (event) => {
@@ -1106,20 +1146,16 @@
       }
     });
 
-    async function refreshAdminAvailability() {
-      const date = document.querySelector('#manualBookingForm [name="appointmentDate"]').value;
-      const select = document.getElementById('manualAppointmentTime');
+    async function refreshAvailability({ dateValue, selectEl, serviceValue, addHaircutChecked, excludeBookingId = null }) {
+      populateAdminTimeOptions(selectEl);
 
-      populateAdminTimeOptions();
+      if (!dateValue) return;
 
-      if (!date) return;
-
-      const formattedDate = formatAdminDateForApi(date);
+      const formattedDate = formatAdminDateForApi(dateValue);
       const response = await fetch(`${API_BASE}/api/bookings/availability?date=${encodeURIComponent(formattedDate)}`, { credentials: 'include' });
       const data = await response.json();
-      const service = document.getElementById('manualServiceSelect').value;
-      const addHaircut = document.querySelector('#manualBookingForm [name="addHaircut"]').checked;
-      const requestedDuration = (SERVICE_DURATIONS[normalizeServiceKey(service)] || 120) + (addHaircut ? 30 : 0);
+      const requestedDuration = (SERVICE_DURATIONS[normalizeServiceKey(serviceValue)] || 120) + (addHaircutChecked ? 30 : 0);
+      const relevantBookings = (data.bookings || []).filter((booking) => booking.id !== excludeBookingId);
 
       const rebuiltOptions = ADMIN_BASE_TIME_OPTIONS.map((option) => {
         if (!option.value) {
@@ -1129,14 +1165,14 @@
         const [hour, minute] = option.value.split(':').map(Number);
         const optionMinutes = (hour * 60) + minute;
         const optionEnd = optionMinutes + requestedDuration;
-        const overlap = (data.bookings || []).some((booking) => {
+        const overlap = relevantBookings.some((booking) => {
           const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
           const bookedStart = (bookedHour * 60) + bookedMinute;
           const bookedDuration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
           const bookedEnd = bookedStart + bookedDuration;
           return optionMinutes < bookedEnd && bookedStart < optionEnd;
         });
-        const conflict = (data.bookings || []).some((booking) => {
+        const conflict = relevantBookings.some((booking) => {
           const [bookedHour, bookedMinute] = booking.appointment_time.split(':').map(Number);
           const bookedStart = (bookedHour * 60) + bookedMinute;
           const bookedDuration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
@@ -1161,7 +1197,16 @@
         return `<option value="${option.value}" ${warningFlags.join(' ')}>${option.label}</option>`;
       }).join('');
 
-      select.innerHTML = rebuiltOptions;
+      selectEl.innerHTML = rebuiltOptions;
+    }
+
+    async function refreshAdminAvailability() {
+      await refreshAvailability({
+        dateValue: document.querySelector('#manualBookingForm [name="appointmentDate"]').value,
+        selectEl: document.getElementById('manualAppointmentTime'),
+        serviceValue: document.getElementById('manualServiceSelect').value,
+        addHaircutChecked: document.querySelector('#manualBookingForm [name="addHaircut"]').checked,
+      });
     }
 
     document.querySelector('#manualBookingForm [name="appointmentDate"]').addEventListener('change', refreshAdminAvailability);
