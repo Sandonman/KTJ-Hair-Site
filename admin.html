@@ -448,7 +448,45 @@
     <div class="details-card" onclick="event.stopPropagation()">
       <h3 id="appointmentDetailsTitle">Appointment Details</h3>
       <div id="appointmentDetailsBody"></div>
-      <button type="button" class="secondary-button" onclick="closeAppointmentDetails()">Close</button>
+      <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px;">
+        <button type="button" id="editAppointmentButton">Edit Appointment</button>
+        <button type="button" class="secondary-button" onclick="closeAppointmentDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editAppointmentModal" class="details-modal" onclick="closeEditAppointmentModal()">
+    <div class="details-card" onclick="event.stopPropagation()">
+      <h3>Edit Appointment</h3>
+      <form id="editAppointmentForm">
+        <input type="hidden" name="bookingId" />
+        <select name="service" id="editAppointmentService" required>
+          <option value="haircut">Haircut</option>
+          <option value="full-highlight">Full Highlight</option>
+          <option value="partial-highlight">Partial Highlight</option>
+          <option value="area-highlight">Area Highlight</option>
+          <option value="all-over-color">All Over Color</option>
+          <option value="root-touch-up">Root Touch Up</option>
+          <option value="partial-highlight-grey">Partial Highlight/Grey Coverage</option>
+          <option value="gloss">Gloss</option>
+          <option value="gloss-haircut">Gloss and Haircut</option>
+          <option value="other">Other</option>
+        </select>
+        <input name="appointmentDate" type="date" required />
+        <select name="appointmentTime" id="editAppointmentTime" required></select>
+        <label><input type="checkbox" name="addHaircut" /> Add Haircut</label>
+        <textarea name="notes" placeholder="Notes"></textarea>
+        <select name="status">
+          <option value="confirmed">Confirmed</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <div id="editAppointmentStatus"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="submit">Save Changes</button>
+          <button type="button" class="secondary-button" onclick="closeEditAppointmentModal()">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
   </div>
@@ -491,6 +529,7 @@
     let clientNotes = [];
     let currentCalendarDate = new Date();
     let selectedDateLabel = '';
+    let selectedBookingId = null;
 
     const SERVICE_COLORS = {
       haircut: '#f8c8dc',
@@ -801,6 +840,7 @@
     window.showAppointmentDetails = function(bookingId) {
       const booking = bookings.find((item) => item.id === bookingId);
       if (!booking) return;
+      selectedBookingId = bookingId;
       document.getElementById('appointmentDetailsTitle').textContent = booking.name;
       document.getElementById('appointmentDetailsBody').innerHTML = `
         <p><strong>Service:</strong> ${booking.service}</p>
@@ -818,11 +858,80 @@
       document.getElementById('appointmentDetailsModal').classList.remove('active');
     }
 
+    function closeEditAppointmentModal() {
+      document.getElementById('editAppointmentModal').classList.remove('active');
+    }
+
     window.showBookingsForDate = function(dateLabel) {
       selectedDateLabel = dateLabel;
       renderCalendar(bookings);
       renderDaySchedule(dateLabel);
     }
+
+    document.getElementById('editAppointmentButton').addEventListener('click', () => {
+      const booking = bookings.find((item) => item.id === selectedBookingId);
+      if (!booking) return;
+      const form = document.getElementById('editAppointmentForm');
+      form.elements.bookingId.value = booking.id;
+      form.elements.service.value = normalizeServiceKey(booking.service);
+      form.elements.appointmentDate.value = new Date(booking.appointment_date).toISOString().slice(0, 10);
+      form.elements.appointmentTime.value = booking.appointment_time;
+      form.elements.addHaircut.checked = Boolean(booking.add_haircut);
+      form.elements.notes.value = booking.notes || '';
+      form.elements.status.value = booking.status || 'confirmed';
+      populateAdminTimeOptions(document.getElementById('editAppointmentTime'));
+      closeAppointmentDetails();
+      document.getElementById('editAppointmentStatus').innerHTML = '';
+      document.getElementById('editAppointmentModal').classList.add('active');
+    });
+
+    document.getElementById('editAppointmentForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const payload = {
+        service: form.elements.service.value,
+        appointmentDate: formatAdminDateForApi(form.elements.appointmentDate.value),
+        appointmentTime: form.elements.appointmentTime.value,
+        addHaircut: form.elements.addHaircut.checked,
+        notes: form.elements.notes.value,
+        status: form.elements.status.value,
+      };
+
+      let response = await fetch(`${API_BASE}/api/admin/bookings/${form.elements.bookingId.value}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...getAdminSessionHeaders() },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 409) {
+        const result = await response.json();
+        if (result.needsConfirmation) {
+          const confirmed = window.confirm(`${result.error} Do you want to save it anyway?`);
+          if (confirmed) {
+            payload.allowConflict = true;
+            response = await fetch(`${API_BASE}/api/admin/bookings/${form.elements.bookingId.value}`, {
+              method: 'PUT',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json', ...getAdminSessionHeaders() },
+              body: JSON.stringify(payload),
+            });
+          }
+        }
+      }
+
+      document.getElementById('editAppointmentStatus').innerHTML = response.ok
+        ? '<div class="success">Appointment updated.</div>'
+        : '<div class="empty">Failed to update appointment.</div>';
+
+      if (response.ok) {
+        await loadAdminData();
+        closeEditAppointmentModal();
+        if (selectedDateLabel) {
+          renderDaySchedule(selectedDateLabel);
+        }
+      }
+    });
 
     function renderClientNotesList(searchTerm = '') {
       const notesEl = document.getElementById('clientNotesList');
@@ -924,9 +1033,8 @@
       return options;
     })();
 
-    function populateAdminTimeOptions() {
-      const select = document.getElementById('manualAppointmentTime');
-      select.innerHTML = ADMIN_BASE_TIME_OPTIONS
+    function populateAdminTimeOptions(selectEl = document.getElementById('manualAppointmentTime')) {
+      selectEl.innerHTML = ADMIN_BASE_TIME_OPTIONS
         .map(option => `<option value="${option.value}">${option.label}</option>`)
         .join('');
     }

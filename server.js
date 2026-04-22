@@ -738,6 +738,82 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
+app.put('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      service,
+      addHaircut,
+      appointmentDate,
+      appointmentTime,
+      notes,
+      status,
+      allowConflict,
+    } = req.body;
+
+    if (!id || !service || !appointmentDate || !appointmentTime) {
+      return res.status(400).json({ error: 'Missing required booking fields.' });
+    }
+
+    const { data: existingBooking, error: existingError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (existingError) throw existingError;
+
+    const { data: existingBookings, error: fetchError } = await supabase
+      .from('bookings')
+      .select('id, appointment_time, service, add_haircut')
+      .eq('appointment_date', appointmentDate)
+      .neq('id', id);
+
+    if (fetchError) throw fetchError;
+
+    const requestedDuration = getServiceDuration(service, addHaircut === 'true' || addHaircut === true);
+    if (hasOverlap(existingBookings || [], appointmentTime, requestedDuration)) {
+      return res.status(409).json({
+        error: 'This appointment overlaps an existing booking.',
+      });
+    }
+
+    const conflict = hasConflict(existingBookings || [], appointmentTime, requestedDuration, 60);
+    const endsLate = !endsByClose(appointmentTime, requestedDuration);
+
+    if ((conflict || endsLate) && !(allowConflict === 'true' || allowConflict === true)) {
+      const warningParts = [];
+      if (conflict) warningParts.push('less than an hour from another booking');
+      if (endsLate) warningParts.push('it would end after 7:00 PM');
+      return res.status(409).json({
+        error: `Warning: this appointment is ${warningParts.join(' and ')}.`,
+        needsConfirmation: true,
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({
+        service,
+        add_haircut: addHaircut === 'true' || addHaircut === true,
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime,
+        notes: notes ?? existingBooking.notes,
+        status: status || existingBooking.status,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ booking: data });
+  } catch (error) {
+    console.error('Admin booking update error:', error);
+    res.status(500).json({ error: 'Failed to update booking.' });
+  }
+});
+
 app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
