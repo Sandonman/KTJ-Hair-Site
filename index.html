@@ -32,35 +32,45 @@
             flex: 1;
             text-align: center;
         }
-        nav {
+        .nav-overlay {
             display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 19;
+        }
+        .nav-overlay.open {
+            display: block;
+        }
+        nav {
+            display: flex;
             flex-direction: column;
-            align-items: flex-end;
-            gap: 8px;
-            position: absolute;
-            top: 64px;
-            right: 20px;
+            align-items: flex-start;
+            gap: 18px;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: min(320px, 82vw);
+            height: 100vh;
             background: #fffdf8;
-            padding: 12px;
-            border-radius: 12px;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+            padding: 88px 28px 28px;
+            box-shadow: -10px 0 24px rgba(0, 0, 0, 0.16);
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
             z-index: 20;
         }
         nav.open {
-            display: flex;
+            transform: translateX(0);
         }
         nav a {
-            color: #F9FAFB;
+            color: #1F2933;
             text-decoration: none;
-            padding: 10px 14px;
-            border-radius: 5px;
-            background-color: #D48C96;
-            transition: background-color 0.3s ease;
-            text-align: center;
-            min-width: 140px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            transition: color 0.2s ease;
         }
         nav a:hover {
-            background-color: #A45647;
+            color: #A45647;
         }
         .menu-toggle {
             background: #D48C96;
@@ -72,6 +82,8 @@
             font-size: 1.5rem;
             cursor: pointer;
             flex-shrink: 0;
+            position: relative;
+            z-index: 21;
         }
         .header-title {
             color: #1F2933;
@@ -252,10 +264,12 @@
     <script>
         function toggleMenu() {
             document.getElementById('siteNav').classList.toggle('open');
+            document.getElementById('navOverlay').classList.toggle('open');
         }
 
         function closeMenu() {
             document.getElementById('siteNav').classList.remove('open');
+            document.getElementById('navOverlay').classList.remove('open');
         }
 
         function toggleHaircutOption() {
@@ -514,6 +528,7 @@
             </div>
             <button type="button" class="menu-toggle" aria-label="Open navigation menu" onclick="toggleMenu()">☰</button>
         </div>
+        <div id="navOverlay" class="nav-overlay" onclick="closeMenu()"></div>
         <nav id="siteNav">
             <a href="#about" onclick="closeMenu()">About</a>
             <a href="#services" onclick="closeMenu()">Services</a>
