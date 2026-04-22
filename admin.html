@@ -56,6 +56,12 @@
       width: auto;
       padding: 10px 16px;
     }
+    .calendar-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 1.2fr);
+      gap: 20px;
+      align-items: start;
+    }
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -80,15 +86,102 @@
       justify-content: center;
       border: 1px solid #eee;
     }
-    .calendar-day.booked {
-      background: #d48c96;
-      color: white;
+    .calendar-day.has-availability {
+      background: #cfe8d1;
+      color: #1f2933;
       font-weight: bold;
+    }
+    .calendar-day.full {
+      background: #e7b4b4;
+      color: #1f2933;
+      font-weight: bold;
+    }
+    .calendar-day.selected {
+      outline: 3px solid #1f2933;
     }
     .calendar-day.muted {
       color: #bbb;
       cursor: default;
       background: #fbfbfb;
+    }
+    .calendar-key {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+    .calendar-key span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .key-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .day-schedule {
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfcfc;
+      min-height: 520px;
+    }
+    .schedule-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .schedule-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .schedule-time {
+      font-size: 13px;
+      color: #666;
+      padding-top: 10px;
+      text-align: right;
+    }
+    .schedule-slot {
+      min-height: 56px;
+      border: 1px dashed #ddd;
+      border-radius: 10px;
+      background: white;
+      position: relative;
+      padding: 6px;
+    }
+    .appointment-chip {
+      width: 100%;
+      border-radius: 10px;
+      padding: 10px;
+      color: #1f2933;
+      font-size: 13px;
+      border: 1px solid rgba(0,0,0,0.08);
+      cursor: pointer;
+      text-align: left;
+    }
+    .appointment-chip.buffer {
+      background: #e5e7eb;
+    }
+    .appointment-chip strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 900px) {
+      .calendar-layout {
+        grid-template-columns: 1fr;
+      }
     }
     form {
       display: flex;
@@ -215,14 +308,26 @@
   </div>
   <div class="section">
     <h2>Booking Calendar</h2>
-    <div class="calendar-nav">
-      <button type="button" id="prevMonthBtn">Previous Month</button>
-      <strong id="calendarMonthLabel"></strong>
-      <button type="button" id="nextMonthBtn">Next Month</button>
+    <div class="calendar-layout">
+      <div>
+        <div class="calendar-nav">
+          <button type="button" id="prevMonthBtn">Previous Month</button>
+          <strong id="calendarMonthLabel"></strong>
+          <button type="button" id="nextMonthBtn">Next Month</button>
+        </div>
+        <div id="calendar"></div>
+        <div class="calendar-key">
+          <span><span class="key-swatch" style="background:#f8f8f8;"></span> Empty day</span>
+          <span><span class="key-swatch" style="background:#cfe8d1;"></span> Has openings</span>
+          <span><span class="key-swatch" style="background:#e7b4b4;"></span> Full day</span>
+        </div>
+      </div>
+      <div>
+        <h3 id="selectedDayHeading">Select a day</h3>
+        <div class="schedule-legend" id="scheduleLegend"></div>
+        <div id="selectedDayBookings" class="day-schedule"></div>
+      </div>
     </div>
-    <div id="calendar"></div>
-    <h3 id="selectedDayHeading">Select a booked day</h3>
-    <div id="selectedDayBookings" class="empty">No day selected yet.</div>
   </div>
 
   <div class="section grid">
@@ -348,6 +453,20 @@
     let bookings = [];
     let clientNotes = [];
     let currentCalendarDate = new Date();
+    let selectedDateLabel = '';
+
+    const SERVICE_COLORS = {
+      haircut: '#f8c8dc',
+      'full-highlight': '#fde68a',
+      'partial-highlight': '#bfdbfe',
+      'area-highlight': '#c7d2fe',
+      'all-over-color': '#fecaca',
+      'root-touch-up': '#fca5a5',
+      'partial-highlight-grey': '#ddd6fe',
+      gloss: '#a7f3d0',
+      'gloss-haircut': '#f9d5a7',
+      other: '#d1d5db',
+    };
 
     function normalizeServiceKey(service) {
       return (service || '').trim().toLowerCase();
@@ -512,14 +631,105 @@
       return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
 
+    function getServiceColor(service) {
+      return SERVICE_COLORS[normalizeServiceKey(service)] || SERVICE_COLORS.other;
+    }
+
+    function getDailyBookings(dateLabel) {
+      return bookings
+        .filter((booking) => normalizeDateLabel(booking.appointment_date) === dateLabel)
+        .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+    }
+
+    function dayHasAvailability(dateLabel) {
+      const daily = getDailyBookings(dateLabel).filter((booking) => (booking.status || '').toLowerCase() !== 'cancelled');
+      if (!daily.length) return false;
+
+      for (let minutes = 9 * 60; minutes < 19 * 60; minutes += 30) {
+        const hasOpenHour = !daily.some((booking) => {
+          const start = Number(booking.appointment_time.split(':')[0]) * 60 + Number(booking.appointment_time.split(':')[1]);
+          const duration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
+          const end = start + duration + 60;
+          const slotEnd = minutes + 60;
+          return minutes < end && start < slotEnd;
+        });
+
+        if (hasOpenHour && minutes + 60 <= 19 * 60) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function renderScheduleLegend() {
+      const legendEl = document.getElementById('scheduleLegend');
+      const items = [
+        ['Haircut', SERVICE_COLORS.haircut],
+        ['Full Highlight', SERVICE_COLORS['full-highlight']],
+        ['Partial Highlight', SERVICE_COLORS['partial-highlight']],
+        ['Area Highlight', SERVICE_COLORS['area-highlight']],
+        ['All Over Color', SERVICE_COLORS['all-over-color']],
+        ['Root Touch Up', SERVICE_COLORS['root-touch-up']],
+        ['Partial Highlight/Grey Coverage', SERVICE_COLORS['partial-highlight-grey']],
+        ['Gloss', SERVICE_COLORS.gloss],
+        ['Gloss and Haircut', SERVICE_COLORS['gloss-haircut']],
+        ['Buffer', '#e5e7eb'],
+      ];
+      legendEl.innerHTML = items.map(([label, color]) => `<span><span class="key-swatch" style="background:${color};"></span>${label}</span>`).join('');
+    }
+
+    function renderDaySchedule(dateLabel) {
+      const target = document.getElementById('selectedDayBookings');
+      document.getElementById('selectedDayHeading').textContent = `Schedule for ${dateLabel}`;
+      const daily = getDailyBookings(dateLabel).filter((booking) => (booking.status || '').toLowerCase() !== 'cancelled');
+
+      if (!daily.length) {
+        target.innerHTML = '<div class="empty">No bookings for that date.</div>';
+        return;
+      }
+
+      const slotMap = new Map();
+      daily.forEach((booking) => {
+        const startMinutes = Number(booking.appointment_time.split(':')[0]) * 60 + Number(booking.appointment_time.split(':')[1]);
+        const duration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
+        const serviceSlots = Math.max(1, Math.ceil(duration / 30));
+        const totalSlots = serviceSlots + 2;
+        for (let index = 0; index < totalSlots; index += 1) {
+          slotMap.set(startMinutes + (index * 30), { booking, isBuffer: index >= serviceSlots });
+        }
+      });
+
+      const rows = [];
+      for (let minutes = 9 * 60; minutes < 19 * 60; minutes += 30) {
+        const entry = slotMap.get(minutes);
+        let content = '';
+        if (entry) {
+          if (entry.isBuffer) {
+            content = '<div class="appointment-chip buffer">Buffer</div>';
+          } else {
+            content = `<button type="button" class="appointment-chip" style="background:${getServiceColor(entry.booking.service)};" onclick="showAppointmentDetails('${entry.booking.id}')"><strong>${entry.booking.name}</strong>${entry.booking.service}<br>${formatTime12Hour(entry.booking.appointment_time)}</button>`;
+          }
+        }
+
+        rows.push(`
+          <div class="schedule-row">
+            <div class="schedule-time">${formatTime12Hour(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`)}</div>
+            <div class="schedule-slot">${content}</div>
+          </div>
+        `);
+      }
+
+      target.innerHTML = `<div class="schedule-grid">${rows.join('')}</div>`;
+    }
+
     function renderCalendar(bookings) {
       const calendarEl = document.getElementById('calendar');
       const year = currentCalendarDate.getFullYear();
       const month = currentCalendarDate.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-       document.getElementById('calendarMonthLabel').textContent = currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const bookedDates = new Set(bookings.map(b => normalizeDateLabel(b.appointment_date)));
+      document.getElementById('calendarMonthLabel').textContent = currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
       let html = '<div class="calendar">';
@@ -532,27 +742,27 @@
       for (let day = 1; day <= lastDay.getDate(); day++) {
         const current = new Date(year, month, day);
         const label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const booked = bookedDates.has(label);
-        html += `<div class="calendar-day ${booked ? 'booked' : ''}" ${booked ? `onclick="showBookingsForDate('${label.replace(/'/g, "\\'")}')"` : ''}>${day}</div>`;
+        const dailyBookings = getDailyBookings(label).filter((booking) => (booking.status || '').toLowerCase() !== 'cancelled');
+        const hasBookings = dailyBookings.length > 0;
+        const className = !hasBookings ? '' : dayHasAvailability(label) ? 'has-availability' : 'full';
+        const selected = selectedDateLabel === label ? ' selected' : '';
+        html += `<div class="calendar-day ${className}${selected}" onclick="showBookingsForDate('${label.replace(/'/g, "\\'")}')">${day}</div>`;
       }
 
       html += '</div>';
       calendarEl.innerHTML = html;
     }
 
+    window.showAppointmentDetails = function(bookingId) {
+      const booking = bookings.find((item) => item.id === bookingId);
+      if (!booking) return;
+      window.alert(`${booking.name}\n${booking.service}\n${booking.appointment_date} at ${formatTime12Hour(booking.appointment_time)}\nStatus: ${booking.status}\nPhone: ${booking.phone || 'None'}\nEmail: ${booking.email || 'None'}\nNotes: ${booking.notes || 'None'}`);
+    }
+
     window.showBookingsForDate = function(dateLabel) {
-      document.getElementById('selectedDayHeading').textContent = `Bookings for ${dateLabel}`;
-      const matches = bookings
-        .filter(booking => normalizeDateLabel(booking.appointment_date) === dateLabel)
-        .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-
-      const target = document.getElementById('selectedDayBookings');
-      if (!matches.length) {
-        renderEmpty(target, 'No bookings for that date.');
-        return;
-      }
-
-      target.innerHTML = matches.map(bookingCard).join('');
+      selectedDateLabel = dateLabel;
+      renderCalendar(bookings);
+      renderDaySchedule(dateLabel);
     }
 
     function renderClientNotesList(searchTerm = '') {
@@ -603,13 +813,16 @@
         const notesData = await notesRes.json();
 
         bookings = bookingsData.bookings || [];
+        renderScheduleLegend();
         renderCalendar(bookings);
 
         const selectedDayEl = document.getElementById('selectedDayBookings');
         document.getElementById('selectedDayHeading').textContent = bookings.length
-          ? 'Select a booked day'
+          ? 'Select a day'
           : 'No bookings yet';
-        renderEmpty(selectedDayEl, bookings.length ? 'No day selected yet.' : 'No bookings yet. New bookings will appear here.');
+        selectedDayEl.innerHTML = bookings.length
+          ? '<div class="empty">Select a day to view the hourly schedule.</div>'
+          : '<div class="empty">No bookings yet. New bookings will appear here.</div>';
 
         if (!messagesData.messages || messagesData.messages.length === 0) {
           renderEmpty(messagesEl, 'No contact messages yet.');
