@@ -139,9 +139,9 @@
     }
     .schedule-grid {
       display: grid;
-      gap: 8px;
+      gap: 6px;
     }
-    .schedule-row {
+    .schedule-block {
       display: grid;
       grid-template-columns: 88px 1fr;
       gap: 10px;
@@ -153,30 +153,52 @@
       padding-top: 10px;
       text-align: right;
     }
-    .schedule-slot {
-      min-height: 56px;
-      border: 1px dashed #ddd;
-      border-radius: 10px;
-      background: white;
-      position: relative;
-      padding: 6px;
-    }
     .appointment-chip {
       width: 100%;
       border-radius: 10px;
-      padding: 10px;
+      padding: 10px 12px;
       color: #1f2933;
       font-size: 13px;
       border: 1px solid rgba(0,0,0,0.08);
       cursor: pointer;
       text-align: left;
+      min-height: 42px;
     }
     .appointment-chip.buffer {
       background: #e5e7eb;
+      cursor: default;
     }
     .appointment-chip strong {
       display: block;
       margin-bottom: 4px;
+    }
+    .details-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 2100;
+    }
+    .details-modal.active {
+      display: flex;
+    }
+    .details-card {
+      background: #fff;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+    }
+    .details-card h3 {
+      margin-top: 0;
+      text-align: left;
+    }
+    .details-card p {
+      margin: 8px 0;
     }
     @media (max-width: 900px) {
       .calendar-layout {
@@ -413,6 +435,14 @@
 
   <div id="imageModal" class="image-modal" onclick="closeImageModal()">
     <img id="imageModalPreview" src="" alt="Preview" onclick="event.stopPropagation()" />
+  </div>
+
+  <div id="appointmentDetailsModal" class="details-modal" onclick="closeAppointmentDetails()">
+    <div class="details-card" onclick="event.stopPropagation()">
+      <h3 id="appointmentDetailsTitle">Appointment Details</h3>
+      <div id="appointmentDetailsBody"></div>
+      <button type="button" class="secondary-button" onclick="closeAppointmentDetails()">Close</button>
+    </div>
   </div>
   </div>
 
@@ -689,38 +719,43 @@
         return;
       }
 
-      const slotMap = new Map();
+      const blocks = [];
       daily.forEach((booking) => {
         const startMinutes = Number(booking.appointment_time.split(':')[0]) * 60 + Number(booking.appointment_time.split(':')[1]);
         const duration = (SERVICE_DURATIONS[normalizeServiceKey(booking.service)] || 120) + (booking.add_haircut ? 30 : 0);
-        const serviceSlots = Math.max(1, Math.ceil(duration / 30));
-        const totalSlots = serviceSlots + 2;
-        for (let index = 0; index < totalSlots; index += 1) {
-          slotMap.set(startMinutes + (index * 30), { booking, isBuffer: index >= serviceSlots });
-        }
+        const serviceEnd = startMinutes + duration;
+        const bufferEnd = serviceEnd + 60;
+
+        blocks.push({
+          type: 'service',
+          booking,
+          startMinutes,
+          endMinutes: serviceEnd,
+        });
+        blocks.push({
+          type: 'buffer',
+          booking,
+          startMinutes: serviceEnd,
+          endMinutes: bufferEnd,
+        });
       });
 
-      const rows = [];
-      for (let minutes = 9 * 60; minutes < 19 * 60; minutes += 30) {
-        const entry = slotMap.get(minutes);
-        let content = '';
-        if (entry) {
-          if (entry.isBuffer) {
-            content = '<div class="appointment-chip buffer">Buffer</div>';
-          } else {
-            content = `<button type="button" class="appointment-chip" style="background:${getServiceColor(entry.booking.service)};" onclick="showAppointmentDetails('${entry.booking.id}')"><strong>${entry.booking.name}</strong>${entry.booking.service}<br>${formatTime12Hour(entry.booking.appointment_time)}</button>`;
-          }
-        }
+      blocks.sort((a, b) => a.startMinutes - b.startMinutes);
 
-        rows.push(`
-          <div class="schedule-row">
-            <div class="schedule-time">${formatTime12Hour(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`)}</div>
-            <div class="schedule-slot">${content}</div>
+      target.innerHTML = `<div class="schedule-grid">${blocks.map((block) => {
+        const labelTime = formatTime12Hour(`${String(Math.floor(block.startMinutes / 60)).padStart(2, '0')}:${String(block.startMinutes % 60).padStart(2, '0')}`);
+        const durationText = `${(block.endMinutes - block.startMinutes) / 60} hr`;
+        const chip = block.type === 'buffer'
+          ? `<div class="appointment-chip buffer">Buffer, ${durationText}</div>`
+          : `<button type="button" class="appointment-chip" style="background:${getServiceColor(block.booking.service)};" onclick="showAppointmentDetails('${block.booking.id}')"><strong>${block.booking.name}</strong>${block.booking.service}<br>${formatTime12Hour(block.booking.appointment_time)}</button>`;
+
+        return `
+          <div class="schedule-block">
+            <div class="schedule-time">${labelTime}</div>
+            ${chip}
           </div>
-        `);
-      }
-
-      target.innerHTML = `<div class="schedule-grid">${rows.join('')}</div>`;
+        `;
+      }).join('')}</div>`;
     }
 
     function renderCalendar(bookings) {
@@ -756,7 +791,21 @@
     window.showAppointmentDetails = function(bookingId) {
       const booking = bookings.find((item) => item.id === bookingId);
       if (!booking) return;
-      window.alert(`${booking.name}\n${booking.service}\n${booking.appointment_date} at ${formatTime12Hour(booking.appointment_time)}\nStatus: ${booking.status}\nPhone: ${booking.phone || 'None'}\nEmail: ${booking.email || 'None'}\nNotes: ${booking.notes || 'None'}`);
+      document.getElementById('appointmentDetailsTitle').textContent = booking.name;
+      document.getElementById('appointmentDetailsBody').innerHTML = `
+        <p><strong>Service:</strong> ${booking.service}</p>
+        <p><strong>Date:</strong> ${booking.appointment_date}</p>
+        <p><strong>Time:</strong> ${formatTime12Hour(booking.appointment_time)}</p>
+        <p><strong>Status:</strong> ${booking.status}</p>
+        <p><strong>Phone:</strong> ${booking.phone || 'None'}</p>
+        <p><strong>Email:</strong> ${booking.email || 'None'}</p>
+        <p><strong>Notes:</strong> ${booking.notes || 'None'}</p>
+      `;
+      document.getElementById('appointmentDetailsModal').classList.add('active');
+    }
+
+    function closeAppointmentDetails() {
+      document.getElementById('appointmentDetailsModal').classList.remove('active');
     }
 
     window.showBookingsForDate = function(dateLabel) {
